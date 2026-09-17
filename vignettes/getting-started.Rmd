@@ -1,8 +1,8 @@
 ---
-title: "Getting started with Rtrino"
+title: "Getting started with RTrino"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Getting started with Rtrino}
+  %\VignetteIndexEntry{Getting started with RTrino}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -15,7 +15,7 @@ knitr::opts_chunk$set(
 )
 ```
 
-`Rtrino` is a DBI backend for [Trino](https://trino.io), the distributed SQL
+`RTrino` is a DBI backend for [Trino](https://trino.io), the distributed SQL
 query engine. It talks to a Trino coordinator over the cluster's HTTP REST API,
 so there is no driver to install and nothing to compile.
 
@@ -30,7 +30,7 @@ table names resolve against. `catalog` and `schema` are required.
 
 ```{r}
 library(DBI)
-library(Rtrino)
+library(RTrino)
 
 con <- dbConnect(
   Trino(),
@@ -149,7 +149,7 @@ abandoning a query also stops the cluster working on it.
 ## Big integers
 
 Trino's `BIGINT` spans values an R double cannot hold exactly. By default
-`Rtrino` returns such columns as `bit64::integer64`, which is exact:
+`RTrino` returns such columns as `bit64::integer64`, which is exact:
 
 ```{r}
 dbGetQuery(con, "SELECT 9007199254740993 AS id")$id
@@ -177,9 +177,9 @@ tbl(con, "sales") |>
 ```
 
 Trino-specific translations are applied where the ANSI defaults would not work:
-casts name Trino types, `paste0()` becomes `CONCAT`, `grepl()` becomes
-`REGEXP_LIKE`, and `median()`/`quantile()` become `APPROX_PERCENTILE`, which is
-the percentile Trino offers over an arbitrary number of rows.
+casts name Trino types, `grepl()`/`gsub()` become `REGEXP_LIKE`/
+`REGEXP_REPLACE`, and `median()`/`quantile()` become `APPROX_PERCENTILE`, which
+is the percentile Trino offers over an arbitrary number of rows.
 
 Inspect the generated SQL before running it with `dplyr::show_query()`, and the
 cluster's plan with `dplyr::explain()`.

@@ -9,7 +9,7 @@ test_that("dbConnect() returns a usable connection and probes /v1/info", {
 })
 
 test_that("catalog and schema are required", {
-  drv <- Rtrino::Trino()
+  drv <- RTrino::Trino()
   expect_error(
     DBI::dbConnect(drv, host = "http://localhost", schema = "default"),
     "catalog and schema are required"
@@ -27,7 +27,7 @@ test_that("catalog and schema are required", {
 test_that("auth must be a function or NULL", {
   expect_error(
     DBI::dbConnect(
-      Rtrino::Trino(),
+      RTrino::Trino(),
       catalog = "hive", schema = "default", auth = "token"
     ),
     "auth must be a function or NULL"
@@ -38,7 +38,7 @@ test_that("an unreachable coordinator is reported with its address", {
   # Port 1 is reserved and never listening.
   expect_error(
     DBI::dbConnect(
-      Rtrino::Trino(),
+      RTrino::Trino(),
       host = "http://127.0.0.1", port = 1L,
       catalog = "hive", schema = "default"
     ),

@@ -1,4 +1,4 @@
-# Exercise Rtrino against a real Trino cluster.
+# Exercise RTrino against a real Trino cluster.
 #
 # Start one locally with Docker (the image ships a `memory` catalog and the
 # `tpch` connector, which is all this script needs):
@@ -23,7 +23,7 @@
 #
 # Stop the container afterwards with `docker stop trino`.
 
-library(Rtrino)
+library(RTrino)
 library(DBI)
 
 say <- function(...) cat("\n== ", ..., "\n", sep = "")

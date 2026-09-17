@@ -31,7 +31,7 @@ test_that("the Trino protocol headers are sent on every request", {
   expect_identical(headers[["x-trino-user"]], "tester")
   expect_identical(headers[["x-trino-catalog"]], "memory")
   expect_identical(headers[["x-trino-schema"]], "default")
-  expect_identical(headers[["x-trino-source"]], "Rtrino")
+  expect_identical(headers[["x-trino-source"]], "RTrino")
   expect_identical(headers[["x-trino-time-zone"]], "UTC")
   # extra.headers wins over the protocol default.
   expect_identical(headers[["x-trino-language"]], "es-ES")

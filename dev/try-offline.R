@@ -1,4 +1,4 @@
-# Exercise every public function of Rtrino without a Trino cluster.
+# Exercise every public function of RTrino without a Trino cluster.
 #
 # The package's own test fixture is a fake coordinator that speaks enough of
 # Trino's client protocol to drive the whole API, so this script reuses it and

@@ -1,4 +1,4 @@
 library(testthat)
-library(Rtrino)
+library(RTrino)
 
-test_check("Rtrino")
+test_check("RTrino")

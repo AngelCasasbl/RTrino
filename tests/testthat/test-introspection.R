@@ -65,7 +65,7 @@ test_that("the objects print informatively", {
   proc <- local_trino_app()
   con <- local_trino_con(proc)
 
-  expect_output(print(Rtrino::Trino()), "<TrinoDriver>")
+  expect_output(print(RTrino::Trino()), "<TrinoDriver>")
   expect_output(print(con), "<TrinoConnection>")
   expect_output(print(con), "catalog: memory")
 

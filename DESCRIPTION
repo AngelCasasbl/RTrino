@@ -1,4 +1,4 @@
-Package: Rtrino
+Package: RTrino
 Title: DBI Backend for Trino
 Version: 0.1.0
 Authors@R:
@@ -31,13 +31,13 @@ Suggests:
     testthat (>= 3.0.0),
     webfakes,
     withr
-URL: https://github.com/luisangelcasas/Rtrino
-BugReports: https://github.com/luisangelcasas/Rtrino/issues
+URL: https://github.com/luisangelcasas/RTrino
+BugReports: https://github.com/luisangelcasas/RTrino/issues
 Roxygen: list(markdown = TRUE)
 VignetteBuilder: knitr
 Config/testthat/edition: 3
 Collate:
-    'Rtrino-package.R'
+    'RTrino-package.R'
     'TrinoDriver.R'
     'TrinoConnection.R'
     'TrinoResult.R'

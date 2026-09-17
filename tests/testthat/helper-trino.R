@@ -314,7 +314,7 @@ local_trino_app <- function(require_auth = NULL, .local_envir = parent.frame()) 
 local_trino_con <- function(proc, ..., .local_envir = parent.frame()) {
   url <- httr2::url_parse(proc$url())
   con <- DBI::dbConnect(
-    Rtrino::Trino(),
+    RTrino::Trino(),
     host = paste0(url$scheme, "://", url$hostname),
     port = as.integer(url$port),
     user = "tester",

@@ -41,7 +41,7 @@ test_that("verified connections leave curl's defaults alone", {
 test_that("dbConnect() rejects ssl_options that are not from trino_ssl()", {
   expect_error(
     DBI::dbConnect(
-      Rtrino::Trino(),
+      RTrino::Trino(),
       catalog = "hive", schema = "default",
       ssl_options = list(verify = TRUE)
     ),
@@ -54,7 +54,7 @@ test_that("the warning fires on each request, not only on connect", {
   url <- httr2::url_parse(proc$url())
   expect_warning(
     con <- DBI::dbConnect(
-      Rtrino::Trino(),
+      RTrino::Trino(),
       host = paste0(url$scheme, "://", url$hostname),
       port = as.integer(url$port),
       catalog = "memory", schema = "default",

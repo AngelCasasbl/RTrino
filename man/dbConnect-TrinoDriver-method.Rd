@@ -11,7 +11,7 @@
   user = trino_default_user(),
   catalog = NULL,
   schema = NULL,
-  source = "Rtrino",
+  source = "RTrino",
   session.timezone = "UTC",
   bigint = c("integer64", "numeric", "character"),
   auth = NULL,
@@ -69,14 +69,14 @@ bad credentials, \code{dbConnect()} probes \code{GET /v1/info} before returning.
 \dontrun{
 # Internal cluster, no authentication
 con <- DBI::dbConnect(
-  Rtrino::Trino(),
+  RTrino::Trino(),
   host = "http://localhost", port = 8080,
   catalog = "hive", schema = "default"
 )
 
 # LDAP over TLS
 con <- DBI::dbConnect(
-  Rtrino::Trino(),
+  RTrino::Trino(),
   host    = "https://trino.example.com",
   port    = 443,
   user    = Sys.getenv("TRINO_USER"),

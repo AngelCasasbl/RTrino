@@ -1,4 +1,4 @@
-# Rtrino
+# RTrino
 
 <!-- badges: start -->
 <!-- badges: end -->
@@ -6,7 +6,7 @@
 A [DBI](https://dbi.r-dbi.org) backend for [Trino](https://trino.io), the
 distributed SQL query engine (the successor of PrestoSQL).
 
-`Rtrino` talks to a Trino coordinator over its HTTP REST API, so there is no
+`RTrino` talks to a Trino coordinator over its HTTP REST API, so there is no
 client library to install and nothing to compile. Its architecture follows
 [RPresto](https://github.com/prestodb/RPresto), rebuilt on
 [httr2](https://httr2.r-lib.org) and on the `sql_dialect()` extension point
@@ -16,14 +16,14 @@ introduced in dbplyr 2.6.0.
 
 ```r
 # install.packages("pak")
-pak::pak("luisangelcasas/Rtrino")
+pak::pak("luisangelcasas/RTrino")
 ```
 
 ## Usage
 
 ```r
 library(DBI)
-library(Rtrino)
+library(RTrino)
 
 con <- dbConnect(
   Trino(),
@@ -47,7 +47,7 @@ tbl(con, "sales") |>
 dbDisconnect(con)
 ```
 
-See `vignette("getting-started", package = "Rtrino")` for authentication,
+See `vignette("getting-started", package = "RTrino")` for authentication,
 certificate authorities, chunked fetching and the `dplyr` translations.
 
 ## What it does

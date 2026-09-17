@@ -1,6 +1,6 @@
 #' Register the dbplyr methods when dbplyr is available
 #'
-#' dbplyr is a soft dependency: `Rtrino` is a complete DBI backend without it.
+#' dbplyr is a soft dependency: `RTrino` is a complete DBI backend without it.
 #' Registering the methods lazily means the package loads on a machine with no
 #' dbplyr installed and picks the methods up as soon as dbplyr is loaded.
 #'

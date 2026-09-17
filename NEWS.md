@@ -1,4 +1,4 @@
-# Rtrino 0.1.0
+# RTrino 0.1.0
 
 First release: a DBI backend for Trino over the cluster's HTTP REST API.
 

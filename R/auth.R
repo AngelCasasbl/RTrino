@@ -36,7 +36,7 @@
 #' @examples
 #' \dontrun{
 #' con <- DBI::dbConnect(
-#'   Rtrino::Trino(),
+#'   RTrino::Trino(),
 #'   host    = "https://trino.example.com",
 #'   port    = 443,
 #'   user    = "analyst",
