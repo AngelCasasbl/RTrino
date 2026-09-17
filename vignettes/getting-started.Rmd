@@ -181,8 +181,23 @@ casts name Trino types, `grepl()`/`gsub()` become `REGEXP_LIKE`/
 `REGEXP_REPLACE`, and `median()`/`quantile()` become `APPROX_PERCENTILE`, which
 is the percentile Trino offers over an arbitrary number of rows.
 
+`filter_out()`, added in dplyr 1.2.0, is translated with Trino's native
+`IS DISTINCT FROM` instead of the portable `CASE WHEN` comparison dbplyr falls
+back to, so the rows where the condition is `NA` are kept and the SQL stays
+readable.
+
+Two groups of dplyr 1.2.0 functions have no SQL translation in dbplyr 2.6.0 and
+therefore none here either: `when_any()`/`when_all()`, which pass through
+untranslated and reach the cluster as an unknown function, and
+`recode_values()`/`replace_values()`/`replace_when()`, which fail with
+"Cannot translate a `<formula>` object to SQL". Use `|` and `&` in place of
+`when_any()` and `when_all()`, and `case_when()` or `if_else()` in place of the
+recoding family, until dbplyr covers them.
+
 Inspect the generated SQL before running it with `dplyr::show_query()`, and the
-cluster's plan with `dplyr::explain()`.
+cluster's plan with `dplyr::explain()`. `simulate_trino()` gives a connection
+that dispatches the Trino dialect without a cluster, for checking a translation
+offline.
 
 ## Introspection
 

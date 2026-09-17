@@ -42,7 +42,8 @@ dbplyr_edition.TrinoConnection <- function(con) 2L
 #' operations whose ANSI defaults Trino does not accept: casts name Trino
 #' types, regular expressions use `regexp_like`/`regexp_replace`, and quantiles
 #' use `approx_percentile`, which is the percentile Trino offers over an
-#' arbitrary number of rows.
+#' arbitrary number of rows. Null-safe comparison uses Trino's native
+#' `IS DISTINCT FROM` rather than dbplyr's portable `CASE WHEN` spelling.
 #'
 #' @param con A Trino SQL dialect object.
 #' @return A `dbplyr` SQL variant.
@@ -69,6 +70,15 @@ sql_translation.sql_dialect_trino <- function(con) {
       },
       sub = function(pattern, replacement, x, ...) {
         dbplyr::sql_glue("REGEXP_REPLACE({x}, {pattern}, {replacement}, 1)")
+      },
+      # dplyr's filter_out() reaches the backend as is_distinct_from(cond,
+      # TRUE); dbplyr's portable fallback spells that as a CASE WHEN comparing
+      # both sides and their nullness, which Trino writes as one operator.
+      is_distinct_from = function(x, y) {
+        dbplyr::sql_glue("({x}) IS DISTINCT FROM ({y})")
+      },
+      is_not_distinct_from = function(x, y) {
+        dbplyr::sql_glue("({x}) IS NOT DISTINCT FROM ({y})")
       },
       Sys.Date = function() dbplyr::sql("CURRENT_DATE"),
       Sys.time = function() dbplyr::sql("CURRENT_TIMESTAMP")

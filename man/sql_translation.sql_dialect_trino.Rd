@@ -17,6 +17,7 @@ Extends dbplyr's base translation with the Trino spellings of the
 operations whose ANSI defaults Trino does not accept: casts name Trino
 types, regular expressions use \code{regexp_like}/\code{regexp_replace}, and quantiles
 use \code{approx_percentile}, which is the percentile Trino offers over an
-arbitrary number of rows.
+arbitrary number of rows. Null-safe comparison uses Trino's native
+\verb{IS DISTINCT FROM} rather than dbplyr's portable \verb{CASE WHEN} spelling.
 }
 \keyword{internal}

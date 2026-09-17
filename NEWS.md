@@ -20,6 +20,13 @@ First release: a DBI backend for Trino over the cluster's HTTP REST API.
   `trino_auth_oauth2()`; TLS settings through `trino_ssl()`, including
   `ca_bundle` for an internal certificate authority.
 * `dplyr` support via a dbplyr SQL dialect, requiring dbplyr >= 2.6.0.
+  `filter_out()`, from dplyr 1.2.0, uses Trino's native `IS DISTINCT FROM`
+  rather than the `CASE WHEN` comparison dbplyr falls back to. dplyr 1.2.0's
+  `when_any()`/`when_all()` and `recode_values()`/`replace_values()`/
+  `replace_when()` are not translated, because dbplyr 2.6.0 has no translation
+  for them on any backend.
+* `simulate_trino()` returns a connection that carries the dialect without a
+  session, for inspecting translated SQL with no cluster to hand.
 
 ## Notes on the specification
 

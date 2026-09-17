@@ -3,6 +3,7 @@
 S3method(print,trino_ssl_options)
 export(Trino)
 export(dbplyr_edition.TrinoConnection)
+export(simulate_trino)
 export(sql_dialect.TrinoConnection)
 export(sql_query_explain.sql_dialect_trino)
 export(sql_translation.sql_dialect_trino)
