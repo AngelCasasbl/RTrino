@@ -9,18 +9,23 @@
 \arguments{
 \item{conn}{A \link[=TrinoConnection-class]{TrinoConnection} object.}
 
-\item{name}{Table name, as a string or an identifier.}
+\item{name}{Table name. \code{"table"} resolves against the connection's catalog
+and schema, \code{"schema.table"} keeps its catalog, and
+\code{"catalog.schema.table"} is used as given.}
 
 \item{...}{Unused, for compatibility with the generic.}
 }
 \value{
-A logical scalar.
+A logical scalar. A name in a catalog or schema that does not exist
+is simply \code{FALSE}, not an error.
 }
 \description{
-Does a table exist?
+Asks \code{information_schema} for a count, so the answer costs the same whatever
+the schema holds.
 }
 \examples{
 \dontrun{
 DBI::dbExistsTable(con, "sales")
+DBI::dbExistsTable(con, "hive.analytics.sales")
 }
 }

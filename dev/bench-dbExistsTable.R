@@ -111,13 +111,17 @@ variants <- list(
 # ------------------------------------------------------------------- measuring --
 # Wall clock, because that is what a caller waits for: it covers the
 # coordinator's planning, the pagination round trips and the conversion in R.
+#
+# Sys.time() rather than proc.time(): on Windows the latter quantises to about
+# 20 ms, which is the same order as the whole measurement and made every
+# variant look identical. Sys.time() resolves microseconds.
 time_calls <- function(f, con, name, reps) {
   f(con, name) # warm up: first call pays for connector metadata caching
   times <- numeric(reps)
   for (i in seq_len(reps)) {
-    start <- proc.time()[["elapsed"]]
+    start <- Sys.time()
     f(con, name)
-    times[[i]] <- proc.time()[["elapsed"]] - start
+    times[[i]] <- as.numeric(difftime(Sys.time(), start, units = "secs"))
   }
   times
 }
@@ -171,7 +175,7 @@ for (size in sizes) {
       f <- variants[[nm]]
       answer <- f(con, target)
       s <- summarise(time_calls(f, con, target, reps))
-      cat(sprintf("%-28s %10.1f %10.1f %10.1f   %s (%s)\n",
+      cat(sprintf("%-28s %10.2f %10.2f %10.2f   %s (%s)\n",
                   nm, s[["median"]], s[["min"]], s[["max"]], answer, label))
       results[[length(results) + 1L]] <- data.frame(
         tables = total, variant = nm, case = label,

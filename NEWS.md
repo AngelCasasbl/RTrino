@@ -35,3 +35,21 @@ Two details differ from the design document this release was built from:
 * Column discovery for `dplyr` uses dbplyr's default (`WHERE 0 = 1`) rather
   than `LIMIT 0`. Both plan without reading data on Trino, and the default
   avoids depending on dbplyr internals.
+
+## Performance and behaviour changes after benchmarking
+
+* Queries no longer pause between the empty pages Trino returns while it
+  queues and plans. Measured against Trino 483, that backoff added about
+  150 ms to *every* query, roughly six times the cost of the HTTP calls
+  themselves; `SELECT 1` went from 220 ms to 30 ms. A capped pause still
+  guards against a server that returns empty pages instantly and forever.
+* `dbExistsTable()` counts a row in `information_schema.tables` instead of
+  listing the schema and matching in R. The old form cost +0.005 ms per table
+  in the schema (36.5 ms at 1200 tables) where this stays flat at ~28 ms. It
+  also now accepts `"schema.table"` and `"catalog.schema.table"`, consistently
+  with `dbListFields()`, and reports `FALSE` rather than an error for a name in
+  a catalog that does not exist.
+* Query failures are raised as classed conditions (`trino_query_error`, and
+  `trino_canceled` for a cancelled query) carrying the server's `error_name`,
+  `error_code`, `error_type` and `query_id`, so callers can react to a specific
+  Trino error without matching on the message text.

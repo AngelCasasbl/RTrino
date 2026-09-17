@@ -110,3 +110,42 @@ test_that("statements are validated", {
 
   expect_error(DBI::dbSendQuery(con, character()), "single string")
 })
+
+test_that("the empty pages of a normal query are followed without pausing", {
+  # A backoff on those pages used to add ~150 ms to every single query, while
+  # the pages themselves come back in under 30 ms.
+  proc <- local_trino_app()
+  con <- local_trino_con(proc)
+
+  slept <- 0
+  testthat::local_mocked_bindings(
+    Sys.sleep = function(time) slept <<- slept + time,
+    .package = "base"
+  )
+
+  # The "slow" scenario answers three pages with no rows before finishing.
+  expect_identical(nrow(DBI::dbGetQuery(con, "SELECT slow")), 1L)
+  expect_identical(slept, 0)
+})
+
+test_that("a server stuck on empty pages is eventually polled slowly", {
+  proc <- local_trino_app()
+  con <- local_trino_con(proc)
+
+  slept <- numeric()
+  testthat::local_mocked_bindings(
+    Sys.sleep = function(time) slept <<- c(slept, time),
+    .package = "base"
+  )
+
+  # The "stalled" scenario answers the POST plus fourteen GETs with no rows
+  # before the fifteenth GET carries the single row.
+  empty_pages <- 14L
+  expect_identical(nrow(DBI::dbGetQuery(con, "SELECT stalled")), 1L)
+
+  # The first pages are followed at full speed; only the ones past the
+  # threshold pause, and each pause is capped.
+  expect_length(slept, empty_pages - trino_poll_free_pages)
+  expect_identical(slept, pmin(0.025 * seq_along(slept), 0.1))
+  expect_lte(max(slept), 0.1)
+})

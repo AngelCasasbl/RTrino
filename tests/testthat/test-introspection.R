@@ -7,13 +7,72 @@ test_that("dbListTables() runs SHOW TABLES against catalog.schema", {
   expect_identical(last$body, 'SHOW TABLES FROM "memory"."default"')
 })
 
-test_that("dbExistsTable() matches exactly", {
+test_that("dbExistsTable() asks information_schema for a count", {
   proc <- local_trino_app()
   con <- local_trino_con(proc)
 
   expect_true(DBI::dbExistsTable(con, "sales"))
+  last <- jsonlite::fromJSON(proc$url("/test/last-request"))
+  expect_identical(
+    last$body,
+    paste0(
+      'SELECT count(*) AS n FROM "memory".information_schema.tables',
+      " WHERE table_schema = 'default' AND table_name = 'sales'"
+    )
+  )
+
   expect_false(DBI::dbExistsTable(con, "sale"))
   expect_false(DBI::dbExistsTable(con, "SALES"))
+})
+
+test_that("dbExistsTable() resolves qualified names", {
+  proc <- local_trino_app()
+  con <- local_trino_con(proc)
+
+  expect_true(DBI::dbExistsTable(con, "analytics.sales"))
+  last <- jsonlite::fromJSON(proc$url("/test/last-request"))
+  expect_match(last$body, "table_schema = 'analytics'")
+  expect_match(last$body, '"memory"\\.information_schema\\.tables')
+
+  expect_true(DBI::dbExistsTable(con, "other.analytics.sales"))
+  last <- jsonlite::fromJSON(proc$url("/test/last-request"))
+  expect_match(last$body, '"other"\\.information_schema\\.tables')
+
+  expect_error(
+    DBI::dbExistsTable(con, "a.b.c.d"),
+    "at most three parts"
+  )
+})
+
+test_that("dbExistsTable() reports FALSE for a catalog that does not exist", {
+  proc <- local_trino_app()
+  con <- local_trino_con(proc)
+
+  # DBI asks for a logical here, so a missing catalog is FALSE, not an error.
+  expect_false(DBI::dbExistsTable(con, "nowhere.default.sales"))
+})
+
+test_that("a name needing quoting is escaped, not interpolated", {
+  proc <- local_trino_app()
+  con <- local_trino_con(proc)
+
+  DBI::dbExistsTable(con, "O'Brien")
+  last <- jsonlite::fromJSON(proc$url("/test/last-request"))
+  expect_match(last$body, "table_name = 'O''Brien'", fixed = TRUE)
+})
+
+test_that("Trino errors carry a class and the server's error name", {
+  proc <- local_trino_app()
+  con <- local_trino_con(proc)
+
+  cnd <- tryCatch(DBI::dbGetQuery(con, "SELECT fail"), error = identity)
+  expect_s3_class(cnd, "trino_query_error")
+  expect_identical(cnd$error_name, "COLUMN_NOT_FOUND")
+  expect_identical(cnd$error_type, "USER_ERROR")
+
+  cnd <- tryCatch(DBI::dbGetQuery(con, "SELECT cancel"), error = identity)
+  expect_s3_class(cnd, "trino_canceled")
+  expect_s3_class(cnd, "trino_query_error")
 })
 
 test_that("dbListFields() describes a qualified table", {

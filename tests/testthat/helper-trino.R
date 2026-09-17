@@ -30,12 +30,25 @@ trino_fake_app <- function(require_auth = NULL) {
   }
 
   # Map a statement to the scenario that drives the response.
-  scenario_for <- function(sql) {
-    sql <- toupper(sql)
+  scenario_for <- function(raw) {
+    sql <- toupper(raw)
+    # Table names are matched against `raw`: Trino's identifiers are
+    # case-sensitive in a string literal, and the fixture has to be too.
     if (grepl("^SHOW TABLES", sql)) {
       "tables"
     } else if (grepl("^DESCRIBE", sql)) {
       "describe"
+    } else if (grepl("INFORMATION_SCHEMA.TABLES", sql, fixed = TRUE)) {
+      # dbExistsTable(): the fake schema holds `sales` and `regions`, and the
+      # catalog `nowhere` does not exist.
+      if (grepl('"nowhere"', raw, fixed = TRUE)) {
+        "no_catalog"
+      } else if (grepl("'sales'", raw, fixed = TRUE) ||
+                   grepl("'regions'", raw, fixed = TRUE)) {
+        "count_one"
+      } else {
+        "count_zero"
+      }
     } else if (grepl("LIMIT 0", sql)) {
       "empty"
     } else if (grepl("FAIL", sql)) {
@@ -46,6 +59,8 @@ trino_fake_app <- function(require_auth = NULL) {
       "paged"
     } else if (grepl("SLOW", sql)) {
       "queued"
+    } else if (grepl("STALLED", sql)) {
+      "stalled"
     } else if (grepl("TYPES", sql)) {
       "types"
     } else {
@@ -170,6 +185,13 @@ trino_fake_app <- function(require_auth = NULL) {
       } else {
         finished(columns = list(int_col("n")), data = list(list(42L)))
       },
+      # Fifteen pages with no rows: enough to exhaust the pause-free pages and
+      # exercise the backoff that guards against a server stuck in that state.
+      stalled = if (page < 16L) {
+        running(page + 1L)
+      } else {
+        finished(columns = list(int_col("n")), data = list(list(1L)))
+      },
       failed = if (page == 1L) {
         running(2L)
       } else {
@@ -188,6 +210,30 @@ trino_fake_app <- function(require_auth = NULL) {
         running(2L)
       } else {
         list(id = id, stats = list(state = "CANCELED"))
+      },
+      count_one = if (page == 1L) {
+        running(2L)
+      } else {
+        finished(columns = list(int_col("n")), data = list(list(1L)))
+      },
+      count_zero = if (page == 1L) {
+        running(2L)
+      } else {
+        finished(columns = list(int_col("n")), data = list(list(0L)))
+      },
+      no_catalog = if (page == 1L) {
+        running(2L)
+      } else {
+        list(
+          id = id,
+          stats = list(state = "FAILED"),
+          error = list(
+            message = "line 1:27: Catalog 'nowhere' not found",
+            errorCode = 44L,
+            errorName = "CATALOG_NOT_FOUND",
+            errorType = "USER_ERROR"
+          )
+        )
       },
       types = if (page == 1L) {
         running(2L)

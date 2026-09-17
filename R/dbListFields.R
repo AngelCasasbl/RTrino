@@ -29,22 +29,43 @@ setMethod(
   }
 )
 
-#' Qualify a table name with the connection's catalog and schema
+#' Split a table name into catalog, schema and table
 #'
-#' A name that already contains dots is assumed to be qualified and is quoted
-#' part by part.
+#' An unqualified name resolves against the connection's catalog and schema; a
+#' `schema.table` name keeps the connection's catalog; a `catalog.schema.table`
+#' name is used as given. Shared by every method that has to address a table,
+#' so they all resolve a name the same way.
+#'
+#' @param conn A [TrinoConnection-class] object.
+#' @param name Table name, with one, two or three dot-separated parts.
+#' @return A character vector of length three.
+#' @noRd
+trino_name_parts <- function(conn, name) {
+  parts <- strsplit(name, ".", fixed = TRUE)[[1L]]
+  switch(
+    as.character(length(parts)),
+    "1" = c(conn@catalog, conn@schema, parts),
+    "2" = c(conn@catalog, parts),
+    "3" = parts,
+    stop(
+      sprintf(
+        "`name` must have at most three parts, got %d: %s",
+        length(parts), name
+      ),
+      call. = FALSE
+    )
+  )
+}
+
+#' Qualify a table name with the connection's catalog and schema
 #'
 #' @param conn A [TrinoConnection-class] object.
 #' @param name Table name.
 #' @return A quoted, fully qualified identifier as a string.
 #' @noRd
 trino_qualify <- function(conn, name) {
-  parts <- strsplit(name, ".", fixed = TRUE)[[1L]]
-  if (length(parts) == 1L) {
-    parts <- c(conn@catalog, conn@schema, parts)
-  }
   paste(
-    vapply(parts, function(p) {
+    vapply(trino_name_parts(conn, name), function(p) {
       as.character(dbQuoteIdentifier(conn, p))
     }, character(1L)),
     collapse = "."
