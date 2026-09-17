@@ -15,8 +15,8 @@ A \code{dbplyr} SQL variant.
 \description{
 Extends dbplyr's base translation with the Trino spellings of the
 operations whose ANSI defaults Trino does not accept: casts name Trino
-types, string concatenation goes through \code{concat}, regular expressions use
-\code{regexp_like}/\code{regexp_replace}, and quantiles use \code{approx_percentile}, which
-is the only percentile Trino offers over an arbitrary number of rows.
+types, regular expressions use \code{regexp_like}/\code{regexp_replace}, and quantiles
+use \code{approx_percentile}, which is the percentile Trino offers over an
+arbitrary number of rows.
 }
 \keyword{internal}

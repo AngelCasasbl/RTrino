@@ -40,9 +40,9 @@ dbplyr_edition.TrinoConnection <- function(con) 2L
 #'
 #' Extends dbplyr's base translation with the Trino spellings of the
 #' operations whose ANSI defaults Trino does not accept: casts name Trino
-#' types, string concatenation goes through `concat`, regular expressions use
-#' `regexp_like`/`regexp_replace`, and quantiles use `approx_percentile`, which
-#' is the only percentile Trino offers over an arbitrary number of rows.
+#' types, regular expressions use `regexp_like`/`regexp_replace`, and quantiles
+#' use `approx_percentile`, which is the percentile Trino offers over an
+#' arbitrary number of rows.
 #'
 #' @param con A Trino SQL dialect object.
 #' @return A `dbplyr` SQL variant.
@@ -59,8 +59,8 @@ sql_translation.sql_dialect_trino <- function(con) {
       as.double = dbplyr::sql_cast("DOUBLE"),
       as.logical = dbplyr::sql_cast("BOOLEAN"),
       as.Date = dbplyr::sql_cast("DATE"),
-      paste = trino_concat_ws(" "),
-      paste0 = trino_concat_ws(""),
+      # paste()/paste0() are left to dbplyr's base translation, which already
+      # emits CONCAT_WS with the separator and the identifiers quoted.
       grepl = function(pattern, x, ...) {
         dbplyr::sql_glue("REGEXP_LIKE({x}, {pattern})")
       },
@@ -90,31 +90,4 @@ sql_translation.sql_dialect_trino <- function(con) {
       var = dbplyr::win_aggregate("VAR_SAMP")
     )
   )
-}
-
-#' Build a `concat` translation with a fixed separator
-#'
-#' Trino's `concat` takes no separator, and `concat_ws` requires one, so
-#' `paste()` and `paste0()` map to whichever fits their default `sep`.
-#'
-#' @param sep Separator to place between arguments.
-#' @return A translation function.
-#' @noRd
-trino_concat_ws <- function(sep) {
-  function(..., collapse = NULL) {
-    if (!is.null(collapse)) {
-      stop("`collapse` is not supported in Trino translations.", call. = FALSE)
-    }
-    # Inside a translation, the arguments arrive already escaped as SQL.
-    args <- vapply(list(...), as.character, character(1L))
-    if (!nzchar(sep)) {
-      return(dbplyr::sql(paste0(
-        "CONCAT(", paste(args, collapse = ", "), ")"
-      )))
-    }
-    dbplyr::sql(paste0(
-      "CONCAT_WS(", dbplyr::sql_quote(sep, "'"), ", ",
-      paste(args, collapse = ", "), ")"
-    ))
-  }
 }

@@ -5,3 +5,4 @@
 ^README\.Rmd$
 ^\.claude$
 ^LICENSE\.md$
+^dev$

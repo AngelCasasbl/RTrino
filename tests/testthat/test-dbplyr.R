@@ -33,7 +33,7 @@ test_that("casts and string functions translate to Trino spellings", {
   expect_match(translate(as.integer(x)), "CAST\\(.*AS INTEGER\\)")
   expect_match(translate(grepl("a", x)), "REGEXP_LIKE")
   expect_match(translate(gsub("a", "b", x)), "REGEXP_REPLACE")
-  expect_match(translate(paste0(x, y)), "CONCAT\\(")
+  expect_match(translate(paste0(x, y)), 'CONCAT_WS\\(\'\', "x", "y"\\)')
 })
 
 test_that("median and quantile use approx_percentile", {
