@@ -7,8 +7,7 @@ A [DBI](https://dbi.r-dbi.org) backend for [Trino](https://trino.io), the
 distributed SQL query engine (the successor of PrestoSQL).
 
 `RTrino` talks to a Trino coordinator over its HTTP REST API, so there is no
-client library to install and nothing to compile. Its architecture follows
-[RPresto](https://github.com/prestodb/RPresto), rebuilt on
+client library to install and nothing to compile. It is built on
 [httr2](https://httr2.r-lib.org) and on the `sql_dialect()` extension point
 introduced in dbplyr 2.6.0.
 
