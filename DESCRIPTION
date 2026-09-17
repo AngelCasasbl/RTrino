@@ -2,7 +2,7 @@ Package: RTrino
 Title: DBI Backend for Trino
 Version: 0.1.0
 Authors@R:
-    person("Luis A", "Casas Ballestas", email = "luisangelcasasbl@gmail.com",
+    person("Luis A", "Casas Ballestas", email = "angelcasasbl@gmail.com",
            role = c("aut", "cre"))
 Description: A 'DBI' compliant backend for Trino <https://trino.io>, the
     distributed SQL query engine (successor of PrestoSQL). Connects to a Trino
@@ -31,8 +31,8 @@ Suggests:
     testthat (>= 3.0.0),
     webfakes,
     withr
-URL: https://github.com/luisangelcasas/RTrino
-BugReports: https://github.com/luisangelcasas/RTrino/issues
+URL: https://github.com/AngelCasasbl/RTrino
+BugReports: https://github.com/AngelCasasbl/RTrino/issues
 Roxygen: list(markdown = TRUE)
 VignetteBuilder: knitr
 Config/testthat/edition: 3

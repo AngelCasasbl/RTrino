@@ -16,7 +16,7 @@ introduced in dbplyr 2.6.0.
 
 ```r
 # install.packages("pak")
-pak::pak("luisangelcasas/RTrino")
+pak::pak("AngelCasasbl/RTrino")
 ```
 
 ## Usage

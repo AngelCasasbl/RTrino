@@ -11,17 +11,17 @@ A 'DBI' compliant backend for Trino \url{https://trino.io}, the distributed SQL 
 \seealso{
 Useful links:
 \itemize{
-  \item \url{https://github.com/luisangelcasas/RTrino}
-  \item Report bugs at \url{https://github.com/luisangelcasas/RTrino/issues}
+  \item \url{https://github.com/AngelCasasbl/RTrino}
+  \item Report bugs at \url{https://github.com/AngelCasasbl/RTrino/issues}
 }
 
 }
 \author{
-\strong{Maintainer}: Luis A Casas Ballestas \email{luisangelcasasbl@gmail.com}
+\strong{Maintainer}: Luis A Casas Ballestas \email{angelcasasbl@gmail.com}
 
 Authors:
 \itemize{
-  \item Luis A Casas Ballestas \email{luisangelcasasbl@gmail.com}
+  \item Luis A Casas Ballestas \email{angelcasasbl@gmail.com}
 }
 
 }
