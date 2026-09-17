@@ -1,0 +1,219 @@
+---
+title: "Getting started with Rtrino"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting started with Rtrino}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+```
+
+`Rtrino` is a DBI backend for [Trino](https://trino.io), the distributed SQL
+query engine. It talks to a Trino coordinator over the cluster's HTTP REST API,
+so there is no driver to install and nothing to compile.
+
+The code in this vignette is not evaluated: every example needs a reachable
+cluster.
+
+## Connecting
+
+Trino's REST API is stateless, so a connection is really a bundle of settings:
+the coordinator's address, who you are, and which catalog and schema unqualified
+table names resolve against. `catalog` and `schema` are required.
+
+```{r}
+library(DBI)
+library(Rtrino)
+
+con <- dbConnect(
+  Trino(),
+  host = "http://localhost",
+  port = 8080,
+  catalog = "hive",
+  schema = "default"
+)
+```
+
+`dbConnect()` calls `/v1/info` before returning, so a wrong address or a
+rejected credential fails immediately rather than on your first query.
+
+## Authentication
+
+Each authentication method is a closure that attaches credentials to every
+request. The credentials live inside that closure, never in the global
+environment, and never in a slot you might print by accident.
+
+Trino refuses to accept credentials over plain HTTP, so all three need an
+`https://` host.
+
+### Basic — LDAP or a password file
+
+```{r}
+con <- dbConnect(
+  Trino(),
+  host = "https://trino.example.com",
+  port = 443,
+  user = Sys.getenv("TRINO_USER"),
+  catalog = "hive",
+  schema = "analytics",
+  auth = trino_auth_basic(Sys.getenv("TRINO_USER"), Sys.getenv("TRINO_PASSWORD"))
+)
+```
+
+### JWT — service accounts and pipelines
+
+```{r}
+con <- dbConnect(
+  Trino(),
+  host = "https://trino.example.com",
+  port = 443,
+  user = Sys.getenv("TRINO_USER"),
+  catalog = "hive",
+  schema = "analytics",
+  auth = trino_auth_jwt(Sys.getenv("TRINO_TOKEN"))
+)
+```
+
+### OAuth2 client credentials — corporate SSO
+
+`httr2` caches the token and renews it when it expires, so a long-running
+session does not need to think about the token's lifetime.
+
+```{r}
+con <- dbConnect(
+  Trino(),
+  host = "https://trino.example.com",
+  port = 443,
+  user = Sys.getenv("TRINO_USER"),
+  catalog = "hive",
+  schema = "analytics",
+  auth = trino_auth_oauth2(
+    client_id     = Sys.getenv("OAUTH_CLIENT_ID"),
+    client_secret = Sys.getenv("OAUTH_CLIENT_SECRET"),
+    token_url     = "https://auth.example.com/oauth/token"
+  )
+)
+```
+
+## Internal certificate authorities
+
+A cluster whose certificate is signed by your own CA does not need certificate
+checking turned off. Point `trino_ssl()` at the CA's PEM file and verification
+keeps working:
+
+```{r}
+con <- dbConnect(
+  Trino(),
+  host = "https://trino.internal",
+  port = 443,
+  catalog = "hive",
+  schema = "analytics",
+  auth = trino_auth_basic(Sys.getenv("TRINO_USER"), Sys.getenv("TRINO_PASSWORD")),
+  ssl_options = trino_ssl(ca_bundle = "/etc/ssl/certs/internal-ca.pem")
+)
+```
+
+`trino_ssl(verify = FALSE)` exists for a development cluster with a throwaway
+certificate. It accepts *any* certificate, including one presented by an
+attacker, so it warns on every request it is applied to.
+
+## Querying
+
+```{r}
+sales <- dbGetQuery(con, "SELECT * FROM sales LIMIT 100")
+```
+
+For a result too large to hold in memory, take it in chunks. `dbFetch()`
+follows Trino's pagination for you and buffers whatever a page delivered beyond
+what you asked for:
+
+```{r}
+res <- dbSendQuery(con, "SELECT * FROM sales")
+while (!dbHasCompleted(res)) {
+  chunk <- dbFetch(res, n = 10000)
+  # summarise, write out, accumulate...
+}
+dbClearResult(res)
+```
+
+Clearing a result that is still running sends a `DELETE` to the coordinator, so
+abandoning a query also stops the cluster working on it.
+
+## Big integers
+
+Trino's `BIGINT` spans values an R double cannot hold exactly. By default
+`Rtrino` returns such columns as `bit64::integer64`, which is exact:
+
+```{r}
+dbGetQuery(con, "SELECT 9007199254740993 AS id")$id
+#> integer64
+#> [1] 9007199254740993
+```
+
+Choose a different representation at connection time with
+`bigint = "numeric"` (a double, exact only up to 2^53) or
+`bigint = "character"`.
+
+## dplyr
+
+With dbplyr 2.6.0 or newer installed, a connection carries a Trino SQL dialect
+and `dplyr` verbs are translated to SQL Trino accepts:
+
+```{r}
+library(dplyr)
+
+tbl(con, "sales") |>
+  filter(year == 2026) |>
+  group_by(region) |>
+  summarise(total = sum(amount, na.rm = TRUE)) |>
+  collect()
+```
+
+Trino-specific translations are applied where the ANSI defaults would not work:
+casts name Trino types, `paste0()` becomes `CONCAT`, `grepl()` becomes
+`REGEXP_LIKE`, and `median()`/`quantile()` become `APPROX_PERCENTILE`, which is
+the percentile Trino offers over an arbitrary number of rows.
+
+Inspect the generated SQL before running it with `dplyr::show_query()`, and the
+cluster's plan with `dplyr::explain()`.
+
+## Introspection
+
+```{r}
+dbListTables(con)
+dbListFields(con, "sales")
+dbExistsTable(con, "sales")
+dbGetInfo(con)$db.version
+```
+
+## Session properties and other headers
+
+Anything the protocol expects in a header can be added to every request through
+`extra.headers` — Trino session properties, for instance:
+
+```{r}
+con <- dbConnect(
+  Trino(),
+  host = "http://localhost",
+  port = 8080,
+  catalog = "hive",
+  schema = "default",
+  extra.headers = list("X-Trino-Session" = "query_max_run_time=2h")
+)
+```
+
+## Disconnecting
+
+There is no server-side session to close, so `dbDisconnect()` only invalidates
+the object; any later use of it is an error rather than a silent reconnect.
+
+```{r}
+dbDisconnect(con)
+```

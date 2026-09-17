@@ -1,0 +1,66 @@
+Package: Rtrino
+Title: DBI Backend for Trino
+Version: 0.1.0
+Authors@R:
+    person("Luis A", "Casas Ballestas", email = "luisangelcasasbl@gmail.com",
+           role = c("aut", "cre"))
+Description: A 'DBI' compliant backend for Trino <https://trino.io>, the
+    distributed SQL query engine (successor of PrestoSQL). Connects to a Trino
+    cluster over its HTTP REST API, executes queries with automatic pagination,
+    maps Trino types to R types, and integrates with 'dplyr' through 'dbplyr'
+    SQL dialects. Supports basic, JWT bearer and OAuth2 client credentials
+    authentication, as well as custom certificate authorities.
+License: BSD_3_clause + file LICENSE
+Encoding: UTF-8
+Depends:
+    R (>= 4.1.0)
+Imports:
+    bit64,
+    DBI (>= 1.2.0),
+    httr2 (>= 1.0.0),
+    jsonlite,
+    methods,
+    rlang,
+    tibble,
+    utils
+Suggests:
+    dbplyr (>= 2.6.0),
+    dplyr,
+    knitr,
+    rmarkdown,
+    testthat (>= 3.0.0),
+    webfakes,
+    withr
+URL: https://github.com/luisangelcasas/Rtrino
+BugReports: https://github.com/luisangelcasas/Rtrino/issues
+Roxygen: list(markdown = TRUE)
+VignetteBuilder: knitr
+Config/testthat/edition: 3
+Collate:
+    'Rtrino-package.R'
+    'TrinoDriver.R'
+    'TrinoConnection.R'
+    'TrinoResult.R'
+    'utils.R'
+    'request_headers.R'
+    'auth.R'
+    'ssl.R'
+    'dbConnect.R'
+    'dbDisconnect.R'
+    'dbIsValid.R'
+    'type_map.R'
+    'paginate.R'
+    'dbSendQuery.R'
+    'dbFetch.R'
+    'dbGetQuery.R'
+    'dbHasCompleted.R'
+    'dbClearResult.R'
+    'dbListTables.R'
+    'dbExistsTable.R'
+    'dbListFields.R'
+    'dbGetInfo.R'
+    'dbQuote.R'
+    'dbplyr-dialect.R'
+    'dbplyr-db.R'
+    'zzz.R'
+Config/roxygen2/version: 8.1.0
