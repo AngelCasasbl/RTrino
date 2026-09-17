@@ -4,8 +4,24 @@
 #' Registering the methods lazily means the package loads on a machine with no
 #' dbplyr installed and picks the methods up as soon as dbplyr is loaded.
 #'
+#' Internal state computed once, when the package loads
+#'
+#' @noRd
+the <- new.env(parent = emptyenv())
+
 #' @noRd
 .onLoad <- function(libname, pkgname) {
+  # R hands `.onLoad()` the package's real name, so the User-Agent and the
+  # version reported by `dbGetInfo()` cannot drift from it the way a hardcoded
+  # string can.
+  version <- tryCatch(
+    as.character(utils::packageVersion(pkgname)),
+    error = function(e) "unknown"
+  )
+  the$package <- pkgname
+  the$version <- version
+  the$user_agent <- paste0(pkgname, "/", version)
+
   s3_register("dbplyr::dbplyr_edition", "TrinoConnection")
   s3_register("dbplyr::sql_dialect", "TrinoConnection")
   s3_register("dbplyr::sql_translation", "sql_dialect_trino")

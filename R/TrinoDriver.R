@@ -39,8 +39,8 @@ setMethod("dbIsValid", "TrinoDriver", function(dbObj, ...) TRUE)
 #' @export
 setMethod("dbGetInfo", "TrinoDriver", function(dbObj, ...) {
   list(
-    driver.version = as.character(utils::packageVersion("RTrino")),
-    client.version = as.character(utils::packageVersion("RTrino"))
+    driver.version = the$version,
+    client.version = the$version
   )
 })
 

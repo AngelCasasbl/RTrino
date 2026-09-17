@@ -37,6 +37,20 @@ test_that("the Trino protocol headers are sent on every request", {
   expect_identical(headers[["x-trino-language"]], "es-ES")
 })
 
+test_that("the User-Agent names this package and its installed version", {
+  proc <- local_trino_app()
+  con <- local_trino_con(proc)
+
+  DBI::dbGetQuery(con, "SELECT 1")
+  headers <- jsonlite::fromJSON(proc$url("/test/last-request"))$headers
+  names(headers) <- tolower(names(headers))
+
+  # Derived from the package name R itself reports, so a rename cannot leave a
+  # stale string behind.
+  expect_identical(headers[["user-agent"]], the$user_agent)
+  expect_match(headers[["user-agent"]], "^RTrino/")
+})
+
 test_that("trino_headers() merges and validates extra headers", {
   proc <- local_trino_app()
   con <- local_trino_con(proc)

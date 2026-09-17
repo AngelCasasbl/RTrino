@@ -87,10 +87,7 @@ trino_perform <- function(conn,
   req <- httr2::request(url)
   req <- httr2::req_method(req, method)
   req <- httr2::req_headers(req, !!!trino_headers(conn, extra_headers))
-  req <- httr2::req_user_agent(
-    req,
-    paste0("RTrino/", as.character(packageVersion("RTrino")))
-  )
+  req <- httr2::req_user_agent(req, the$user_agent)
   if (!is.null(body)) {
     req <- httr2::req_body_raw(req, body, type = "text/plain")
   }
