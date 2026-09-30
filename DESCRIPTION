@@ -1,17 +1,19 @@
 Package: RTrino
-Title: DBI Backend for Trino
+Title: 'DBI' Backend for 'Trino'
 Version: 0.1.0
 Authors@R:
     person("Luis A", "Casas Ballestas", email = "angelcasasbl@gmail.com",
            role = c("aut", "cre"))
-Description: A 'DBI' compliant backend for Trino <https://trino.io>, the
-    distributed SQL query engine (successor of PrestoSQL). Connects to a Trino
-    cluster over its HTTP REST API, executes queries with automatic pagination,
-    maps Trino types to R types, and integrates with 'dplyr' through 'dbplyr'
-    SQL dialects. Supports basic, JWT bearer and OAuth2 client credentials
-    authentication, as well as custom certificate authorities.
+Description: A 'DBI' compliant backend for 'Trino' <https://trino.io>, the
+    distributed SQL query engine (successor of 'PrestoSQL'). Connects to a
+    'Trino' cluster over its HTTP REST API, executes queries with automatic
+    pagination, maps 'Trino' types to R types, and integrates with 'dplyr'
+    through 'dbplyr' SQL dialects. Supports basic, JWT bearer and OAuth2
+    client credentials authentication, as well as custom certificate
+    authorities.
 License: BSD_3_clause + file LICENSE
 Encoding: UTF-8
+Language: en-GB
 Depends:
     R (>= 4.1.0)
 Imports:
@@ -55,11 +57,13 @@ Collate:
     'dbGetQuery.R'
     'dbHasCompleted.R'
     'dbClearResult.R'
+    'table_name.R'
     'dbListTables.R'
     'dbExistsTable.R'
     'dbListFields.R'
     'dbGetInfo.R'
     'dbQuote.R'
+    'unsupported.R'
     'dbplyr-dialect.R'
     'dbplyr-db.R'
     'dbplyr-simulate.R'

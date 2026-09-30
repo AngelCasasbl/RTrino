@@ -42,7 +42,8 @@ con <- dbConnect(
 ```
 
 `dbConnect()` calls `/v1/info` before returning, so a wrong address or a
-rejected credential fails immediately rather than on your first query.
+rejected credential fails immediately rather than on your first query. The
+port can also be written into the host, as in `host = "localhost:8080"`.
 
 ## Authentication
 
@@ -50,8 +51,10 @@ Each authentication method is a closure that attaches credentials to every
 request. The credentials live inside that closure, never in the global
 environment, and never in a slot you might print by accident.
 
-Trino refuses to accept credentials over plain HTTP, so all three need an
-`https://` host.
+All three need an `https://` host. Over plain HTTP the credentials would
+travel unencrypted, so `dbConnect()` refuses to send them there, before
+anything reaches the network. Only if the connection is encrypted by other
+means, such as an SSH tunnel to the coordinator, set `allow_http_auth = TRUE`.
 
 ### Basic — LDAP or a password file
 
@@ -63,7 +66,10 @@ con <- dbConnect(
   user = Sys.getenv("TRINO_USER"),
   catalog = "hive",
   schema = "analytics",
-  auth = trino_auth_basic(Sys.getenv("TRINO_USER"), Sys.getenv("TRINO_PASSWORD"))
+  auth = trino_auth_basic(
+    Sys.getenv("TRINO_USER"),
+    Sys.getenv("TRINO_PASSWORD")
+  )
 )
 ```
 
@@ -115,14 +121,17 @@ con <- dbConnect(
   port = 443,
   catalog = "hive",
   schema = "analytics",
-  auth = trino_auth_basic(Sys.getenv("TRINO_USER"), Sys.getenv("TRINO_PASSWORD")),
+  auth = trino_auth_basic(
+    Sys.getenv("TRINO_USER"),
+    Sys.getenv("TRINO_PASSWORD")
+  ),
   ssl_options = trino_ssl(ca_bundle = "/etc/ssl/certs/internal-ca.pem")
 )
 ```
 
 `trino_ssl(verify = FALSE)` exists for a development cluster with a throwaway
 certificate. It accepts *any* certificate, including one presented by an
-attacker, so it warns on every request it is applied to.
+attacker, so `dbConnect()` warns when it opens a connection with it.
 
 ## Querying
 
@@ -144,9 +153,79 @@ dbClearResult(res)
 ```
 
 Clearing a result that is still running sends a `DELETE` to the coordinator, so
-abandoning a query also stops the cluster working on it.
+abandoning a query also stops the cluster working on it. So does interrupting
+R while it waits for a query.
 
-## Big integers
+`dbColumnInfo()` and `dbFetch(res, n = 0)` describe the result's columns, with
+their types, before any row has been fetched.
+
+## Statements
+
+`dbExecute()` runs a statement to completion and returns how many rows Trino
+says it changed: the count of an `INSERT`, `UPDATE`, `DELETE`, `MERGE` or
+`CREATE TABLE ... AS SELECT`, and `0` for a statement that changes no rows,
+such as `CREATE TABLE` or `DROP TABLE`.
+
+```{r}
+dbExecute(con, "INSERT INTO memory.default.visits VALUES (1, 'a'), (2, 'b')")
+#> [1] 2
+```
+
+RTrino has no parameter binding, and passing `params` is an error rather than
+being ignored. Put values into a statement with `sqlInterpolate()` or
+`glue::glue_sql()`: both quote them through `dbQuoteLiteral()`, which writes
+Trino literals of the right type, so a date is compared as a date and a string
+cannot break out of its quotes.
+
+```{r}
+sql <- sqlInterpolate(
+  con,
+  "SELECT * FROM orders WHERE orderdate >= ?since AND orderstatus = ?status",
+  since = as.Date("1995-01-01"),
+  status = "F"
+)
+sql
+#> <SQL> SELECT * FROM orders
+#>       WHERE orderdate >= DATE '1995-01-01' AND orderstatus = 'F'
+dbGetQuery(con, sql)
+```
+
+A `POSIXct` is written as a `TIMESTAMP` in the connection's
+`session.timezone`, to the microsecond, which is how Trino reads it back.
+
+RTrino reads data; it does not upload data frames. `dbWriteTable()`,
+`dbAppendTable()`, `dbCreateTable()` and `dplyr::copy_to()` fail with a message
+that says so: create and fill tables with SQL, for example
+`CREATE TABLE ... AS SELECT ...`, through `dbExecute()`. Transactions
+(`dbBegin()` and friends) are not supported either; each statement is committed
+when it finishes.
+
+## Timeouts
+
+A query is a series of HTTP requests, and two limits apply:
+
+* `timeout` (60 seconds by default) bounds each request, so a coordinator or a
+  network that stops answering fails with an error instead of blocking R.
+* `query_max_run_time` bounds the whole query on the cluster. Past it, Trino
+  stops the query and RTrino raises a `trino_query_error` with
+  `error_name = "EXCEEDED_TIME_LIMIT"`.
+
+In a Shiny app, where a blocked R session blocks its user, set both:
+
+```{r}
+con <- dbConnect(
+  Trino(),
+  host = "https://trino.example.com",
+  port = 443,
+  catalog = "hive",
+  schema = "analytics",
+  auth = trino_auth_jwt(Sys.getenv("TRINO_TOKEN")),
+  timeout = 30,
+  query_max_run_time = "5m"
+)
+```
+
+## Big integers and precision
 
 Trino's `BIGINT` spans values an R double cannot hold exactly. By default
 `RTrino` returns such columns as `bit64::integer64`, which is exact:
@@ -157,9 +236,16 @@ dbGetQuery(con, "SELECT 9007199254740993 AS id")$id
 #> [1] 9007199254740993
 ```
 
-Choose a different representation at connection time with
-`bigint = "numeric"` (a double, exact only up to 2^53) or
-`bigint = "character"`.
+The one exception is the lowest `BIGINT`, -9223372036854775808, which bit64
+keeps for its own `NA`: it comes back as `NA`, with a warning. Choose a
+different representation at connection time with `bigint = "numeric"` (a
+double, exact only up to 2^53) or `bigint = "character"` (the exact digits,
+always).
+
+`DOUBLE` values arrive bit for bit, `NaN` and the infinities included.
+`DECIMAL` is returned as a double, so a decimal with more than 15 significant
+digits is rounded; cast it to `VARCHAR` in the query to keep every digit.
+`TIMESTAMP` and `TIME` keep their full precision, down to the microsecond.
 
 ## dplyr
 
@@ -176,10 +262,40 @@ tbl(con, "sales") |>
   collect()
 ```
 
-Trino-specific translations are applied where the ANSI defaults would not work:
-casts name Trino types, `grepl()`/`gsub()` become `REGEXP_LIKE`/
-`REGEXP_REPLACE`, and `median()`/`quantile()` become `APPROX_PERCENTILE`, which
-is the percentile Trino offers over an arbitrary number of rows.
+Trino-specific translations are applied so that an expression computes in
+Trino what it computes in R:
+
+* `/` divides as a double, where Trino would truncate the quotient of two
+  integers, and `%%` takes the sign of the divisor, as in R.
+* `as.integer()` and `as.integer64()` truncate towards zero, where Trino's cast
+  would round.
+* `paste()`, `paste0()` and `str_c()` accept columns of any type.
+* `grepl()`, `sub()` and `gsub()` become `REGEXP_LIKE`/`REGEXP_REPLACE`,
+  honour `fixed = TRUE` and `ignore.case = TRUE`, and accept R's `\\1`
+  back-references; `sub()` replaces the first match only.
+* A `Date` or `POSIXct` from R, as in `filter(orderdate >= !!since)`, becomes a
+  typed Trino literal.
+
+Where there is no faithful translation, a few differences remain, and it is
+worth knowing them before moving a computation from R to the cluster:
+
+* `round()` rounds halves away from zero, where R rounds them to the even
+  digit: `round(2.5)` is `3` in Trino and `2` in R.
+* `median()` and `quantile()` become `APPROX_PERCENTILE`, the percentile Trino
+  offers over an arbitrary number of rows. It is approximate: on skewed data it
+  can be off by a few per cent. Collect the rows and compute in R when the
+  exact value matters.
+* `paste()` skips `NA`, where R writes `"NA"`, and renders a `DOUBLE` column
+  the way Trino does, so a value of 1.5 becomes `"1.5E0"`; round or cast it to
+  a `DECIMAL` first when that matters.
+* Regular expressions are Trino's (Java's syntax), not R's; the common
+  constructs mean the same in both.
+* `date + 1` fails, because Trino does not add a number to a date; write
+  `date + days(1)`. `days()`, `weeks()`, `months()`, `years()`, `hours()`,
+  `minutes()` and `seconds()` become intervals.
+
+`compute()` needs `temporary = FALSE` and a name, because Trino has no
+temporary tables.
 
 `filter_out()`, added in dplyr 1.2.0, is translated with Trino's native
 `IS DISTINCT FROM` instead of the portable `CASE WHEN` comparison dbplyr falls
@@ -208,10 +324,16 @@ dbExistsTable(con, "sales")
 dbGetInfo(con)$db.version
 ```
 
+A table can be named as `"table"`, `"schema.table"` or `"catalog.schema.table"`,
+with `Id(catalog = , schema = , table = )`, or with an identifier that is
+already quoted. Trino folds every identifier to lower case, so
+`dbExistsTable(con, "SALES")` finds `sales`, as `SELECT * FROM SALES` would.
+
 ## Session properties and other headers
 
 Anything the protocol expects in a header can be added to every request through
-`extra.headers` — Trino session properties, for instance:
+`extra.headers` — Trino session properties, for instance. `query_max_run_time`
+joins whatever properties are set here:
 
 ```{r}
 con <- dbConnect(

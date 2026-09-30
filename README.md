@@ -56,14 +56,32 @@ certificate authorities, chunked fetching and the `dplyr` translations.
 * Follows Trino's `nextUri` pagination, and handles every state the protocol
   can report (`QUEUED`, `PLANNING`, `RUNNING`, `FINISHED`, `FAILED`,
   `CANCELED`).
-* Maps Trino types to R types, with `BIGINT` returned as exact
-  `bit64::integer64` by default.
+* Maps Trino types to R types without losing precision: `BIGINT` comes back
+  as exact `bit64::integer64` by default, `DOUBLE` bit for bit, and
+  timestamps to the microsecond.
+* Reports the rows a statement changed from `dbExecute()`, and accepts table
+  names as strings, `DBI::Id()` or quoted identifiers.
 * Cancels a query on the server when its result is cleared while still running.
+* Bounds each HTTP request with a `timeout`, and a query's run time on the
+  cluster with `query_max_run_time`.
 * Authenticates with basic credentials, a bearer JWT or OAuth2 client
-  credentials — each held in a closure, never in a global variable.
+  credentials — each held in a closure, never in a global variable — and
+  refuses to send them over plain HTTP.
 * Trusts an internal certificate authority without turning verification off.
 * Translates `dplyr` pipelines to Trino SQL when dbplyr (>= 2.6.0) is
-  installed.
+  installed, so that an expression computes in Trino what it computes in R.
+
+## What it does not do
+
+* Parameter binding: put values into a statement with `DBI::sqlInterpolate()`,
+  which quotes them as typed Trino literals. Passing `params` is an error.
+* Uploading data frames: `dbWriteTable()`, `dbAppendTable()`,
+  `dbCreateTable()` and `copy_to()` fail with a message that says so. Create
+  and fill tables with SQL through `dbExecute()`.
+* Transactions: each statement is committed when it finishes.
+
+The vignette lists the few places where a `dplyr` translation cannot match R,
+such as `round()` on halves and the approximate `median()`.
 
 ## Authentication
 
@@ -76,11 +94,24 @@ certificate authorities, chunked fetching and the `dplyr` translations.
 ## Development
 
 R 4.1.0 or newer. The test suite runs offline against a fake Trino coordinator
-built with [webfakes](https://webfakes.r-lib.org), so no cluster is needed:
+built with [webfakes](https://webfakes.r-lib.org), so no cluster is needed.
+The fake replays responses recorded from a real Trino
+(`tests/testthat/fixtures`, captured with `dev/record-fixtures.R`), so the
+tests read the payloads a cluster really sends:
 
 ```r
 devtools::test()
 devtools::check()
+```
+
+With a Trino at hand, the integration tests in `tests/testthat/test-live.R`
+also run: they compare every value with Trino's own rendering of it, and run
+the SQL of the `dplyr` translations against what R computes on the same rows.
+
+```r
+# docker run --rm -d -p 8080:8080 --name trino trinodb/trino
+Sys.setenv(RTRINO_TEST_URL = "http://localhost:8080")
+devtools::test()
 ```
 
 ## License

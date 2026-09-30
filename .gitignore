@@ -5,3 +5,5 @@
 *.Rcheck/
 *.tar.gz
 Rtrino-SDD.md
+AUDITORIA.md
+.Renviron
