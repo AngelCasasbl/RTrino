@@ -6,7 +6,8 @@
 #' A cluster whose certificate is signed by an internal authority does not need
 #' verification turned off: point `ca_bundle` at the authority's PEM file and
 #' certificates keep being checked. `verify = FALSE` accepts any certificate,
-#' including an attacker's, and so warns every time it is applied.
+#' including an attacker's, and so [dbConnect()] warns once when it opens a
+#' connection with it.
 #'
 #' @param verify Whether to verify the server's certificate. Defaults to `TRUE`.
 #' @param ca_bundle Path to a PEM file holding the certificate authorities to
@@ -46,10 +47,6 @@ trino_ssl <- function(verify = TRUE, ca_bundle = NULL) {
 #' @noRd
 trino_ssl_options <- function(req, ssl_opts) {
   if (isFALSE(ssl_opts$verify)) {
-    warning(
-      "SSL verification disabled - not recommended for production",
-      call. = FALSE
-    )
     return(httr2::req_options(req, ssl_verifypeer = 0L, ssl_verifyhost = 0L))
   }
   if (!is.null(ssl_opts$ca_bundle)) {

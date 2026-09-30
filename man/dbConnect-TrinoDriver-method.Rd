@@ -17,6 +17,9 @@
   auth = NULL,
   ssl_options = trino_ssl(),
   extra.headers = list(),
+  timeout = 60,
+  query_max_run_time = NULL,
+  allow_http_auth = FALSE,
   ...
 )
 }
@@ -24,9 +27,11 @@
 \item{drv}{A \link[=TrinoDriver-class]{TrinoDriver} object, from \code{\link[=Trino]{Trino()}}.}
 
 \item{host}{Coordinator URL. A missing scheme defaults to \verb{http://}; a
-trailing slash is dropped.}
+trailing slash is dropped. It may include the port
+(\code{"https://trino.example.com:8443"}), in which case \code{port} need not be
+given.}
 
-\item{port}{Coordinator port.}
+\item{port}{Coordinator port, a whole number between 1 and 65535.}
 
 \item{user}{Trino user name, sent as \code{X-Trino-User}.}
 
@@ -41,8 +46,9 @@ coordinator's query history.}
 columns.}
 
 \item{bigint}{How to return \code{BIGINT} columns: \code{"integer64"} (the default,
-via \code{bit64}, exact), \code{"numeric"} (a double, exact only up to 2^53) or
-\code{"character"}.}
+via \code{bit64}, exact except for the lowest value, -9223372036854775808,
+which bit64 reserves for \code{NA}), \code{"numeric"} (a double, exact only up to
+2^53) or \code{"character"} (the exact digits).}
 
 \item{auth}{An authentication closure from \code{\link[=trino_auth_basic]{trino_auth_basic()}},
 \code{\link[=trino_auth_jwt]{trino_auth_jwt()}} or \code{\link[=trino_auth_oauth2]{trino_auth_oauth2()}}, or \code{NULL} for a cluster with
@@ -51,8 +57,21 @@ no authentication.}
 \item{ssl_options}{TLS options from \code{\link[=trino_ssl]{trino_ssl()}}.}
 
 \item{extra.headers}{Named list of extra HTTP headers added to every
-request. Useful for Trino session properties set through
-\code{X-Trino-Session}.}
+request, each a single string. Useful for Trino session properties set
+through \code{X-Trino-Session}.}
+
+\item{timeout}{Seconds allowed for each HTTP request to the coordinator,
+not for the whole query; \code{Inf} for no limit. Connecting gives up after
+10 seconds, or \code{timeout} if shorter.}
+
+\item{query_max_run_time}{Longest a query may run on the cluster before
+Trino stops it, as a Trino duration such as \code{"30m"} or \code{"2h"}, or a
+number of seconds. \code{NULL}, the default, leaves the cluster's own limit.
+Sent as the \code{query_max_run_time} session property.}
+
+\item{allow_http_auth}{Set to \code{TRUE} to send \code{auth} credentials to an
+\verb{http://} host, which carries them unencrypted. Only for a connection
+that is encrypted by other means, such as an SSH tunnel.}
 
 \item{...}{Unused, for compatibility with the generic.}
 }
@@ -65,6 +84,16 @@ session is opened on the server; the connection object holds the coordinator
 address and the per-request settings. To fail early on a wrong address or
 bad credentials, \code{dbConnect()} probes \code{GET /v1/info} before returning.
 }
+\section{Timeouts}{
+
+A query is a series of HTTP requests, so two limits apply. \code{timeout} bounds
+each request: a coordinator or network that stops answering fails with an
+error instead of blocking the R session. \code{query_max_run_time} bounds the
+query as a whole on the server: past it, Trino stops the query and RTrino
+raises a \code{trino_query_error} whose \code{error_name} is \code{"EXCEEDED_TIME_LIMIT"}.
+In a Shiny app, where a blocked session blocks its user, set both.
+}
+
 \examples{
 \dontrun{
 # Internal cluster, no authentication
@@ -74,7 +103,7 @@ con <- DBI::dbConnect(
   catalog = "hive", schema = "default"
 )
 
-# LDAP over TLS
+# LDAP over TLS, with limits for use in a Shiny app
 con <- DBI::dbConnect(
   RTrino::Trino(),
   host    = "https://trino.example.com",
@@ -83,7 +112,9 @@ con <- DBI::dbConnect(
   catalog = "hive",
   schema  = "analytics",
   auth    = trino_auth_basic(Sys.getenv("TRINO_USER"),
-                             Sys.getenv("TRINO_PASSWORD"))
+                             Sys.getenv("TRINO_PASSWORD")),
+  timeout = 30,
+  query_max_run_time = "5m"
 )
 
 DBI::dbDisconnect(con)

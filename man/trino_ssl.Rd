@@ -23,7 +23,8 @@ Pass the result as the \code{ssl_options} argument of \code{\link[DBI:dbConnect]
 A cluster whose certificate is signed by an internal authority does not need
 verification turned off: point \code{ca_bundle} at the authority's PEM file and
 certificates keep being checked. \code{verify = FALSE} accepts any certificate,
-including an attacker's, and so warns every time it is applied.
+including an attacker's, and so \code{\link[DBI:dbConnect]{dbConnect()}} warns once when it opens a
+connection with it.
 }
 \examples{
 # Secure default

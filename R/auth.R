@@ -92,20 +92,3 @@ trino_auth_oauth2 <- function(client_id,
     ))
   }
 }
-
-#' Validate a scalar string argument
-#'
-#' @param x Value to check.
-#' @param arg Argument name, used in the error message.
-#' @param allow_empty Whether `""` is acceptable.
-#' @return `x`, unchanged.
-#' @noRd
-trino_check_string <- function(x, arg, allow_empty = FALSE) {
-  if (!is.character(x) || length(x) != 1L || is.na(x)) {
-    stop(sprintf("`%s` must be a single string.", arg), call. = FALSE)
-  }
-  if (!allow_empty && !nzchar(x)) {
-    stop(sprintf("`%s` must not be empty.", arg), call. = FALSE)
-  }
-  x
-}

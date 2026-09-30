@@ -4,6 +4,10 @@
 #' `conn@extra.headers` and from `extra` are merged last, in that order, so a
 #' caller can deliberately override a protocol header.
 #'
+#' `X-Trino-Client-Capabilities: PARAMETRIC_DATETIME` tells Trino the client
+#' reads date-time types of any precision. Without it Trino treats the client
+#' as a legacy one and rounds every `TIMESTAMP` and `TIME` to milliseconds.
+#'
 #' @param conn A [TrinoConnection-class] object.
 #' @param extra Named list of additional headers.
 #' @return A named list of headers.
@@ -16,6 +20,7 @@ trino_headers <- function(conn, extra = list()) {
     "X-Trino-Source" = conn@source,
     "X-Trino-Time-Zone" = conn@session.timezone,
     "X-Trino-Language" = "en-US",
+    "X-Trino-Client-Capabilities" = "PARAMETRIC_DATETIME",
     "Accept" = "application/json"
   )
 
