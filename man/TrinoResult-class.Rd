@@ -45,7 +45,8 @@ This makes \code{res} behave like a cursor, as DBI expects.
 \item{\code{statement}}{The SQL statement, as a string.}
 
 \item{\code{state}}{Environment holding the mutable cursor state: \code{next_uri},
-\code{columns}, \code{data}, \code{completed}, \code{rows_fetched} and \code{query_id}.}
+\code{columns}, \code{data}, \code{completed}, \code{rows_fetched}, \code{query_id}, and the
+\code{update_type} and \code{update_count} of a statement that changes something.}
 }}
 
 \keyword{internal}

@@ -14,10 +14,12 @@
 \item{...}{Unused, for compatibility with the generic.}
 }
 \value{
-The number of affected rows, invisibly, or \code{NA}.
+The number of affected rows, invisibly: a double, or \code{NA} for a data
+change whose count Trino did not report.
 }
 \description{
 Runs the statement to completion and reports how many rows Trino says it
-touched. Trino does not report an affected-row count for every statement, so
-the answer can be \code{NA}.
+changed: the count of an \code{INSERT}, an \code{UPDATE}, a \code{DELETE}, a \code{MERGE} or a
+\verb{CREATE TABLE ... AS SELECT}, and \code{0} for a statement that changes no rows,
+such as \verb{CREATE TABLE} or \verb{DROP TABLE}.
 }

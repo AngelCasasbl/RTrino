@@ -2,14 +2,23 @@
 % Please edit documentation in R/dbListFields.R
 \name{dbListFields,TrinoConnection,character-method}
 \alias{dbListFields,TrinoConnection,character-method}
+\alias{dbListFields,TrinoConnection,Id-method}
+\alias{dbListFields,TrinoConnection,ANY-method}
 \title{List a table's columns}
 \usage{
 \S4method{dbListFields}{TrinoConnection,character}(conn, name, ...)
+
+\S4method{dbListFields}{TrinoConnection,Id}(conn, name, ...)
+
+\S4method{dbListFields}{TrinoConnection,ANY}(conn, name, ...)
 }
 \arguments{
 \item{conn}{A \link[=TrinoConnection-class]{TrinoConnection} object.}
 
-\item{name}{Table name. An unqualified name is resolved against the
+\item{name}{Table name, required, in any form
+\link[=dbExistsTable,TrinoConnection,character-method]{dbExistsTable()} accepts:
+a string with one to three dot-separated parts, a \code{\link[DBI:Id]{DBI::Id()}} or a quoted
+identifier from \code{\link[DBI:SQL]{DBI::SQL()}}. An unqualified name is resolved against the
 connection's catalog and schema.}
 
 \item{...}{Unused, for compatibility with the generic.}
@@ -23,5 +32,6 @@ List a table's columns
 \examples{
 \dontrun{
 DBI::dbListFields(con, "sales")
+DBI::dbListFields(con, DBI::Id(schema = "analytics", table = "sales"))
 }
 }

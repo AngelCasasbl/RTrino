@@ -1,12 +1,16 @@
 #' Does a table exist?
 #'
 #' Asks `information_schema` for a count, so the answer costs the same whatever
-#' the schema holds.
+#' the schema holds. Trino folds every identifier to lower case, so the name is
+#' matched the same way: `"SALES"` exists if `sales` does, as
+#' `SELECT * FROM SALES` would find it.
 #'
 #' @param conn A [TrinoConnection-class] object.
-#' @param name Table name. `"table"` resolves against the connection's catalog
-#'   and schema, `"schema.table"` keeps its catalog, and
-#'   `"catalog.schema.table"` is used as given.
+#' @param name Table name, required. A string: `"table"` resolves against the
+#'   connection's catalog and schema, `"schema.table"` keeps its catalog, and
+#'   `"catalog.schema.table"` is used as given. Also a [DBI::Id()], with
+#'   components named `catalog`, `schema` and `table`, or a quoted identifier
+#'   from [DBI::SQL()] or [DBI::dbQuoteIdentifier()].
 #' @param ... Unused, for compatibility with the generic.
 #'
 #' @return A logical scalar. A name in a catalog or schema that does not exist
@@ -16,14 +20,14 @@
 #' \dontrun{
 #' DBI::dbExistsTable(con, "sales")
 #' DBI::dbExistsTable(con, "hive.analytics.sales")
+#' DBI::dbExistsTable(con, DBI::Id(catalog = "hive", schema = "analytics",
+#'                                 table = "sales"))
 #' }
 setMethod(
   "dbExistsTable", c("TrinoConnection", "character"),
   function(conn, name, ...) {
     trino_check_valid(conn)
-    name <- trino_check_string(name, "name")
-
-    parts <- trino_name_parts(conn, name)
+    parts <- trino_table_parts(conn, name)
 
     # Counting one row in information_schema rather than listing the schema and
     # matching in R: the coordinator applies the predicate and a single row
@@ -34,11 +38,15 @@ setMethod(
     # information_schema.tables, not .columns: existence does not need the
     # column metadata, which the connector would have to resolve and this would
     # then discard.
+    #
+    # information_schema holds names in lower case, Trino's folding of every
+    # identifier; lower() on the literal is folded to a constant when the query
+    # is planned, so the predicate is still pushed down to the connector.
     sql <- paste0(
       "SELECT count(*) AS n FROM ",
       dbQuoteIdentifier(conn, parts[[1L]]), ".information_schema.tables",
-      " WHERE table_schema = ", dbQuoteString(conn, parts[[2L]]),
-      " AND table_name = ", dbQuoteString(conn, parts[[3L]])
+      " WHERE table_schema = lower(", dbQuoteString(conn, parts[[2L]]), ")",
+      " AND table_name = lower(", dbQuoteString(conn, parts[[3L]]), ")"
     )
 
     # A table in a catalog that does not exist does not exist either: DBI asks
@@ -54,4 +62,20 @@ setMethod(
     )
     !is.null(out) && nrow(out) == 1L && as.numeric(out[[1L]]) > 0
   }
+)
+
+#' @rdname dbExistsTable-TrinoConnection-character-method
+#' @export
+setMethod(
+  "dbExistsTable", c("TrinoConnection", "Id"),
+  function(conn, name, ...) {
+    dbExistsTable(conn, DBI::SQL(trino_qualify(conn, name)), ...)
+  }
+)
+
+#' @rdname dbExistsTable-TrinoConnection-character-method
+#' @export
+setMethod(
+  "dbExistsTable", c("TrinoConnection", "ANY"),
+  function(conn, name, ...) trino_bad_table_name(name, "the table to look up")
 )

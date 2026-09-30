@@ -11,7 +11,8 @@
 #' @slot connection The [TrinoConnection-class] the statement was sent on.
 #' @slot statement The SQL statement, as a string.
 #' @slot state Environment holding the mutable cursor state: `next_uri`,
-#'   `columns`, `data`, `completed`, `rows_fetched` and `query_id`.
+#'   `columns`, `data`, `completed`, `rows_fetched`, `query_id`, and the
+#'   `update_type` and `update_count` of a statement that changes something.
 #'
 #' @keywords internal
 #' @export
@@ -36,10 +37,13 @@ trino_result_state <- function(next_uri = NULL, query_id = NA_character_) {
   state$next_uri <- next_uri
   state$query_id <- query_id
   state$columns <- NULL
+  state$targets <- NULL
   state$data <- list()
   state$completed <- FALSE
   state$cleared <- FALSE
   state$rows_fetched <- 0L
+  state$update_type <- NULL
+  state$update_count <- NULL
   state
 }
 
@@ -74,12 +78,31 @@ setMethod("dbGetRowCount", "TrinoResult", function(res, ...) {
 #' @rdname TrinoResult-class
 #' @export
 setMethod("dbGetRowsAffected", "TrinoResult", function(res, ...) {
-  NA_integer_
+  state <- res@state
+  if (!is.null(state$update_count)) {
+    # A BIGINT: an integer, a double or, past 2^53, a string of digits.
+    return(as.numeric(state$update_count))
+  }
+  if (is.null(state$update_type)) {
+    # A query changes no rows.
+    return(0)
+  }
+  # DDL and session statements change no rows either; a data change whose
+  # count Trino has not reported (yet) is the one case that is unknown.
+  dml <- c("INSERT", "DELETE", "UPDATE", "MERGE")
+  if (toupper(state$update_type) %in% dml) NA_real_ else 0
 })
 
 #' @rdname TrinoResult-class
 #' @export
 setMethod("dbColumnInfo", "TrinoResult", function(res, ...) {
+  if (!dbIsValid(res)) {
+    stop("Invalid TrinoResult: the result has been cleared.", call. = FALSE)
+  }
+  # The columns arrive a few pages into the query, so follow it that far.
+  if (dbIsValid(res@connection)) {
+    trino_drain(res, 0L)
+  }
   columns <- res@state$columns
   if (is.null(columns)) {
     return(tibble::tibble(name = character(), type = character()))

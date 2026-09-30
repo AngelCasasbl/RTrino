@@ -15,6 +15,7 @@
 #' @slot source Value of the `X-Trino-Source` header.
 #' @slot auth Authentication closure, or `NULL` for no authentication.
 #' @slot ssl_options SSL options as returned by [trino_ssl()].
+#' @slot timeout Seconds allowed for each HTTP request, or `Inf`.
 #' @slot valid Environment holding the connection's validity flag.
 #'
 #' @keywords internal
@@ -34,6 +35,7 @@ setClass(
     source = "character",
     auth = "ANY",
     ssl_options = "list",
+    timeout = "numeric",
     valid = "environment"
   )
 )
@@ -44,7 +46,10 @@ setClass(
 setMethod("show", "TrinoConnection", function(object) {
   cat("<TrinoConnection>\n")
   cat("  ", trino_base_url(object), "\n", sep = "")
-  cat("  catalog: ", object@catalog, "  schema: ", object@schema, "\n", sep = "")
+  cat(
+    "  catalog: ", object@catalog, "  schema: ", object@schema, "\n",
+    sep = ""
+  )
   cat("  user: ", object@user, "\n", sep = "")
   if (!dbIsValid(object)) {
     cat("  DISCONNECTED\n")

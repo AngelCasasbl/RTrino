@@ -22,10 +22,23 @@ Posts the statement to \verb{/v1/statement} and returns immediately with a
 that fails during planning raises an error here, because Trino reports it in
 the response to the initial \code{POST}.
 }
+\details{
+Query parameters are not supported: passing \code{params} is an error rather
+than being silently ignored. Put values into the statement with
+\code{\link[DBI:sqlInterpolate]{DBI::sqlInterpolate()}} or \code{glue::glue_sql()}, which quote them with
+\code{\link[DBI:dbQuoteLiteral]{DBI::dbQuoteLiteral()}} as Trino literals.
+}
 \examples{
 \dontrun{
 res <- DBI::dbSendQuery(con, "SELECT 1 AS n")
 DBI::dbFetch(res)
 DBI::dbClearResult(res)
+
+# Values go into the SQL as literals, quoted for Trino
+sql <- DBI::sqlInterpolate(
+  con, "SELECT * FROM orders WHERE orderdate >= ?since",
+  since = as.Date("2026-01-01")
+)
+DBI::dbGetQuery(con, sql)
 }
 }

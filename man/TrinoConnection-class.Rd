@@ -41,6 +41,8 @@ requests; no socket is kept open.
 
 \item{\code{ssl_options}}{SSL options as returned by \code{\link[=trino_ssl]{trino_ssl()}}.}
 
+\item{\code{timeout}}{Seconds allowed for each HTTP request, or \code{Inf}.}
+
 \item{\code{valid}}{Environment holding the connection's validity flag.}
 }}
 

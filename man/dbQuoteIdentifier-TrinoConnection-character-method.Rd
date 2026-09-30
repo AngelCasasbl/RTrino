@@ -2,12 +2,18 @@
 % Please edit documentation in R/dbQuote.R
 \name{dbQuoteIdentifier,TrinoConnection,character-method}
 \alias{dbQuoteIdentifier,TrinoConnection,character-method}
+\alias{dbQuoteIdentifier,TrinoConnection,SQL-method}
 \alias{dbQuoteString,TrinoConnection,character-method}
+\alias{dbQuoteString,TrinoConnection,SQL-method}
 \title{Quote identifiers and strings for Trino}
 \usage{
 \S4method{dbQuoteIdentifier}{TrinoConnection,character}(conn, x, ...)
 
+\S4method{dbQuoteIdentifier}{TrinoConnection,SQL}(conn, x, ...)
+
 \S4method{dbQuoteString}{TrinoConnection,character}(conn, x, ...)
+
+\S4method{dbQuoteString}{TrinoConnection,SQL}(conn, x, ...)
 }
 \arguments{
 \item{conn}{A \link[=TrinoConnection-class]{TrinoConnection} object.}
@@ -22,7 +28,8 @@ A \link[DBI:SQL]{DBI::SQL} object.
 \description{
 Trino follows the SQL standard: identifiers are wrapped in double quotes
 with embedded double quotes doubled, and string literals are wrapped in
-single quotes with embedded single quotes doubled.
+single quotes with embedded single quotes doubled. A value that is already
+\code{\link[DBI:SQL]{DBI::SQL()}} is returned unchanged rather than quoted a second time.
 }
 \examples{
 \dontrun{

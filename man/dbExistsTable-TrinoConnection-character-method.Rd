@@ -2,16 +2,24 @@
 % Please edit documentation in R/dbExistsTable.R
 \name{dbExistsTable,TrinoConnection,character-method}
 \alias{dbExistsTable,TrinoConnection,character-method}
+\alias{dbExistsTable,TrinoConnection,Id-method}
+\alias{dbExistsTable,TrinoConnection,ANY-method}
 \title{Does a table exist?}
 \usage{
 \S4method{dbExistsTable}{TrinoConnection,character}(conn, name, ...)
+
+\S4method{dbExistsTable}{TrinoConnection,Id}(conn, name, ...)
+
+\S4method{dbExistsTable}{TrinoConnection,ANY}(conn, name, ...)
 }
 \arguments{
 \item{conn}{A \link[=TrinoConnection-class]{TrinoConnection} object.}
 
-\item{name}{Table name. \code{"table"} resolves against the connection's catalog
-and schema, \code{"schema.table"} keeps its catalog, and
-\code{"catalog.schema.table"} is used as given.}
+\item{name}{Table name, required. A string: \code{"table"} resolves against the
+connection's catalog and schema, \code{"schema.table"} keeps its catalog, and
+\code{"catalog.schema.table"} is used as given. Also a \code{\link[DBI:Id]{DBI::Id()}}, with
+components named \code{catalog}, \code{schema} and \code{table}, or a quoted identifier
+from \code{\link[DBI:SQL]{DBI::SQL()}} or \code{\link[DBI:dbQuoteIdentifier]{DBI::dbQuoteIdentifier()}}.}
 
 \item{...}{Unused, for compatibility with the generic.}
 }
@@ -21,11 +29,15 @@ is simply \code{FALSE}, not an error.
 }
 \description{
 Asks \code{information_schema} for a count, so the answer costs the same whatever
-the schema holds.
+the schema holds. Trino folds every identifier to lower case, so the name is
+matched the same way: \code{"SALES"} exists if \code{sales} does, as
+\verb{SELECT * FROM SALES} would find it.
 }
 \examples{
 \dontrun{
 DBI::dbExistsTable(con, "sales")
 DBI::dbExistsTable(con, "hive.analytics.sales")
+DBI::dbExistsTable(con, DBI::Id(catalog = "hive", schema = "analytics",
+                                table = "sales"))
 }
 }

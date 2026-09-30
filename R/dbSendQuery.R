@@ -5,6 +5,11 @@
 #' that fails during planning raises an error here, because Trino reports it in
 #' the response to the initial `POST`.
 #'
+#' Query parameters are not supported: passing `params` is an error rather
+#' than being silently ignored. Put values into the statement with
+#' [DBI::sqlInterpolate()] or `glue::glue_sql()`, which quote them with
+#' [DBI::dbQuoteLiteral()] as Trino literals.
+#'
 #' @param conn A [TrinoConnection-class] object.
 #' @param statement A single SQL statement, without a trailing semicolon.
 #' @param ... Unused, for compatibility with the generic.
@@ -16,12 +21,20 @@
 #' res <- DBI::dbSendQuery(con, "SELECT 1 AS n")
 #' DBI::dbFetch(res)
 #' DBI::dbClearResult(res)
+#'
+#' # Values go into the SQL as literals, quoted for Trino
+#' sql <- DBI::sqlInterpolate(
+#'   con, "SELECT * FROM orders WHERE orderdate >= ?since",
+#'   since = as.Date("2026-01-01")
+#' )
+#' DBI::dbGetQuery(con, sql)
 #' }
 setMethod(
   "dbSendQuery", c("TrinoConnection", "character"),
   function(conn, statement, ...) {
     trino_check_valid(conn)
     statement <- trino_check_string(statement, "statement")
+    trino_check_no_params(...)
 
     resp <- trino_perform(
       conn,
@@ -41,23 +54,84 @@ setMethod(
   }
 )
 
+#' Submit a statement that changes something
+#'
+#' Unlike [dbSendQuery()][dbSendQuery,TrinoConnection,character-method], runs
+#' the statement to completion before returning, so that
+#' [dbGetRowsAffected()] answers straight away, as DBI requires: Trino only
+#' reports the count once the statement has finished.
+#'
+#' @inheritParams dbSendQuery,TrinoConnection,character-method
+#' @return A [TrinoResult-class] object whose statement has finished.
+#' @export
+setMethod(
+  "dbSendStatement", c("TrinoConnection", "character"),
+  function(conn, statement, ...) {
+    res <- dbSendQuery(conn, statement, ...)
+    # An interrupt or a failure while waiting must not leave the statement
+    # running on the cluster with nobody holding its result.
+    finished <- FALSE
+    on.exit(if (!finished) try(dbClearResult(res), silent = TRUE), add = TRUE)
+    trino_drain(res, -1L)
+    finished <- TRUE
+    res
+  }
+)
+
 #' Execute a statement that returns no rows
 #'
 #' Runs the statement to completion and reports how many rows Trino says it
-#' touched. Trino does not report an affected-row count for every statement, so
-#' the answer can be `NA`.
+#' changed: the count of an `INSERT`, an `UPDATE`, a `DELETE`, a `MERGE` or a
+#' `CREATE TABLE ... AS SELECT`, and `0` for a statement that changes no rows,
+#' such as `CREATE TABLE` or `DROP TABLE`.
 #'
 #' @param conn A [TrinoConnection-class] object.
 #' @param statement A single SQL statement.
 #' @param ... Unused, for compatibility with the generic.
-#' @return The number of affected rows, invisibly, or `NA`.
+#' @return The number of affected rows, invisibly: a double, or `NA` for a data
+#'   change whose count Trino did not report.
 #' @export
 setMethod(
   "dbExecute", c("TrinoConnection", "character"),
   function(conn, statement, ...) {
-    res <- dbSendQuery(conn, statement, ...)
+    res <- dbSendStatement(conn, statement, ...)
     on.exit(dbClearResult(res), add = TRUE)
-    trino_drain(res, -1L)
     invisible(dbGetRowsAffected(res))
   }
 )
+
+#' Parameters are not supported
+#'
+#' Trino's client protocol has no parameter binding of its own, so rather than
+#' ignoring the values, `dbBind()` fails.
+#'
+#' @param res A [TrinoResult-class] object.
+#' @param params Unused.
+#' @param ... Unused.
+#' @return Never returns.
+#' @export
+setMethod("dbBind", "TrinoResult", function(res, params, ...) {
+  trino_abort_params()
+})
+
+#' Fail if a caller passed query parameters
+#'
+#' @param ... The dots of a query method.
+#' @return `NULL`, invisibly.
+#' @noRd
+trino_check_no_params <- function(...) {
+  if (!is.null(list(...)$params)) {
+    trino_abort_params()
+  }
+  invisible()
+}
+
+#' @noRd
+trino_abort_params <- function() {
+  stop(
+    "RTrino does not support parameterised queries, so `params` cannot be ",
+    "used. Put the values into the statement with DBI::sqlInterpolate() or ",
+    "glue::glue_sql(), which quote them as Trino literals.",
+    call. = FALSE
+  )
+}

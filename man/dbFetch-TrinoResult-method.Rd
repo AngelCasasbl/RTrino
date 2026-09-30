@@ -9,10 +9,11 @@
 \arguments{
 \item{res}{A \link[=TrinoResult-class]{TrinoResult} object.}
 
-\item{n}{Number of rows to fetch. \code{-1} (the default) fetches every remaining
-row, paginating until the query finishes. A positive \code{n} returns at most
-that many rows, pulling as many pages as needed and keeping the remainder
-buffered on the cursor for the next call.}
+\item{n}{Number of rows to fetch. \code{-1} or \code{Inf} (the default is \code{-1})
+fetches every remaining row, paginating until the query finishes. A
+positive \code{n} returns at most that many rows, pulling as many pages as
+needed and keeping the remainder buffered on the cursor for the next call.
+\code{0} returns no rows but the result's columns, with their types.}
 
 \item{...}{Unused, for compatibility with the generic.}
 }

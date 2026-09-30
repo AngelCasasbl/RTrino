@@ -10,6 +10,10 @@
 #' simply followed; `RUNNING` may carry a partial page; `FINISHED` ends the
 #' query; `FAILED` and `CANCELED` raise an error.
 #'
+#' A statement that changes something, rather than a query, is marked by
+#' `updateType` (`"INSERT"`, `"CREATE TABLE"`, ...), and one that touched rows
+#' reports how many in `updateCount`, on the last pages only.
+#'
 #' @param state The result's state environment.
 #' @param payload A parsed Trino response.
 #' @return The number of rows added by this payload.
@@ -20,6 +24,12 @@ trino_absorb_payload <- function(state, payload) {
   }
   if (!is.null(payload$columns) && is.null(state$columns)) {
     state$columns <- payload$columns
+  }
+  if (!is.null(payload$updateType)) {
+    state$update_type <- payload$updateType
+  }
+  if (!is.null(payload$updateCount)) {
+    state$update_count <- payload$updateCount
   }
 
   status <- payload$stats$state %||% NA_character_
@@ -70,8 +80,6 @@ trino_absorb_payload <- function(state, payload) {
   added
 }
 
-#' Fetch the next page of a result
-#'
 #' How many consecutive empty pages to follow before pausing between them
 #'
 #' Trino answers a `nextUri` by holding the request open until it has data or a
@@ -112,6 +120,10 @@ trino_advance <- function(res, attempt = 0L) {
 
 #' Drain a result until it has enough rows
 #'
+#' Also keeps going until the result's columns are known, which on a real
+#' cluster happens a few pages into the query, not on the first response: so
+#' `n = 0` asks for the columns and nothing else.
+#'
 #' @param res A [TrinoResult-class] object.
 #' @param n Number of rows wanted, or `-1` for all of them.
 #' @return `res`, invisibly.
@@ -119,7 +131,8 @@ trino_advance <- function(res, attempt = 0L) {
 trino_drain <- function(res, n) {
   state <- res@state
   attempt <- 0L
-  while (!isTRUE(state$completed) && (n < 0L || length(state$data) < n)) {
+  while (!isTRUE(state$completed) &&
+           (is.null(state$columns) || n < 0L || length(state$data) < n)) {
     added <- trino_advance(res, attempt)
     attempt <- if (added > 0L) 0L else attempt + 1L
   }
