@@ -14,7 +14,25 @@
 #' @param ... Unused, for compatibility with the generic.
 #' @return The `EXPLAIN` statement, as SQL.
 #' @keywords internal
-#' @export
+#' @exportS3Method NULL
 sql_query_explain.sql_dialect_trino <- function(con, sql, ...) {
   dbplyr::sql_glue2(con, "EXPLAIN {.sql sql}")
+}
+
+#' `copy_to()` is not supported
+#'
+#' RTrino does not upload data from R; see [RTrino-unsupported].
+#'
+#' @param con A [TrinoConnection-class] object.
+#' @param table,values,overwrite,types,temporary Unused.
+#' @param unique_indexes,indexes,analyze,in_transaction,... Unused.
+#' @return Never returns.
+#' @keywords internal
+#' @exportS3Method NULL
+db_copy_to.TrinoConnection <- function(con, table, values, ...,
+                                       overwrite = FALSE, types = NULL,
+                                       temporary = TRUE,
+                                       unique_indexes = NULL, indexes = NULL,
+                                       analyze = TRUE, in_transaction = TRUE) {
+  trino_abort_upload("copy_to()")
 }

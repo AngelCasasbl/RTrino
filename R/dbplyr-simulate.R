@@ -11,7 +11,8 @@
 #' @keywords internal
 #' @export
 #' @examples
-#' if (requireNamespace("dbplyr", quietly = TRUE)) {
+#' if (requireNamespace("dbplyr", quietly = TRUE) &&
+#'       utils::packageVersion("dbplyr") >= "2.6.0") {
 #'   con <- simulate_trino()
 #'   dbplyr::translate_sql(as.numeric(x), con = con)
 #' }

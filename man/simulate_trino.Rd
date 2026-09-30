@@ -18,7 +18,8 @@ used by this package's own translation tests, which then need no coordinator
 at all. Anything that reaches the database, such as \code{collect()}, still fails.
 }
 \examples{
-if (requireNamespace("dbplyr", quietly = TRUE)) {
+if (requireNamespace("dbplyr", quietly = TRUE) &&
+      utils::packageVersion("dbplyr") >= "2.6.0") {
   con <- simulate_trino()
   dbplyr::translate_sql(as.numeric(x), con = con)
 }
