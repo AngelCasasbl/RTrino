@@ -13,11 +13,28 @@ sql_translation.sql_dialect_trino(con)
 A \code{dbplyr} SQL variant.
 }
 \description{
-Extends dbplyr's base translation with the Trino spellings of the
-operations whose ANSI defaults Trino does not accept: casts name Trino
-types, regular expressions use \code{regexp_like}/\code{regexp_replace}, and quantiles
-use \code{approx_percentile}, which is the percentile Trino offers over an
+Extends dbplyr's base translation so that an R expression computes in
+Trino what it computes in R, or fails, rather than quietly computing
+something else:
+}
+\details{
+\itemize{
+\item \code{/} divides as a double, where Trino would truncate the quotient of two
+integers; \code{\%\%} takes the sign of the divisor, as in R.
+\item \code{as.integer()} and \code{as.integer64()} truncate towards zero, where a cast
+would round.
+\item \code{paste()}, \code{paste0()} and \code{str_c()} cast every argument to \code{VARCHAR},
+which Trino's \code{CONCAT_WS} requires.
+\item \code{grepl()}, \code{sub()} and \code{gsub()} honour \code{fixed} and \code{ignore.case}, and
+rewrite R's \verb{\\\\1} back-references into Trino's \verb{$1}; \code{sub()} replaces the
+first match only.
+\item \code{days()}, \code{weeks()}, \code{months()}, \code{years()}, \code{hours()}, \code{minutes()} and
+\code{seconds()} build intervals, so \code{date + days(1)} works where \code{date + 1}
+does not.
+\item Casts name Trino types, and \code{median()} and \code{quantile()} use
+\code{approx_percentile}, which is the percentile Trino offers over an
 arbitrary number of rows. Null-safe comparison uses Trino's native
 \verb{IS DISTINCT FROM} rather than dbplyr's portable \verb{CASE WHEN} spelling.
+}
 }
 \keyword{internal}
