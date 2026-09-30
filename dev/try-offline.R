@@ -8,8 +8,10 @@
 #
 # The fake server chooses its answer from the SQL text, so the statements below
 # are the ones it knows about: "SELECT 1", "SELECT * FROM big" (paginated),
-# "SELECT slow" (queued), "SELECT types" (one row of every type),
-# "SELECT fail", "SELECT cancel", SHOW TABLES and DESCRIBE.
+# "SELECT slow" (queued), "SELECT fail", "SELECT cancel", SHOW TABLES and
+# DESCRIBE, plus the statements recorded from a real Trino in
+# tests/testthat/fixtures, which `trino_fixture_sql()` looks up by name (one
+# row of every type, BIGINT and DOUBLE edge values, an INSERT, ...).
 
 pkgload::load_all(".", quiet = TRUE)
 library(DBI)
@@ -78,8 +80,8 @@ cat("columns:", paste(names(empty), collapse = ", "),
     "\n")
 
 # --------------------------------------------------------------------- types --
-say("every Trino type, converted")
-types <- dbGetQuery(con, "SELECT types")
+say("every Trino type, converted (recorded from a real Trino)")
+types <- dbGetQuery(con, trino_fixture_sql("types"))[1, ]
 for (nm in names(types)) {
   value <- types[[nm]]
   shown <- if (is.list(value)) format(value[[1]]) else format(value)
@@ -95,8 +97,13 @@ con_num <- dbConnect(
   port = as.integer(url$port),
   catalog = "memory", schema = "default", bigint = "numeric"
 )
-cat("numeric:  ", format(dbGetQuery(con_num, "SELECT types")$big, digits = 22), "\n")
+big <- dbGetQuery(con_num, trino_fixture_sql("types"))$big[[1]]
+cat("numeric:  ", format(big, digits = 22), "\n")
 dbDisconnect(con_num)
+
+say("dbExecute reports the rows a statement changed")
+cat("INSERT of two rows:", dbExecute(con, trino_fixture_sql("insert")), "\n")
+cat("CREATE TABLE:      ", dbExecute(con, trino_fixture_sql("create_table")), "\n")
 
 say("the type map on its own")
 for (t in c("boolean", "bigint", "decimal(38,9)", "varchar(10)", "varbinary",
@@ -146,12 +153,24 @@ secured <- webfakes::new_app_process(
 on.exit(secured$stop(), add = TRUE)
 surl <- httr2::url_parse(secured$url())
 
+cat("credentials over plain HTTP are refused: ")
+cat(conditionMessage(tryCatch(
+  dbConnect(Trino(),
+            host = paste0(surl$scheme, "://", surl$hostname),
+            port = as.integer(surl$port),
+            catalog = "memory", schema = "default",
+            auth = trino_auth_jwt("demo-token")),
+  error = identity
+)), "\n")
+
+# The fake coordinator only speaks HTTP, so allow it explicitly.
 con_jwt <- dbConnect(
   Trino(),
   host = paste0(surl$scheme, "://", surl$hostname),
   port = as.integer(surl$port),
   catalog = "memory", schema = "default",
-  auth = trino_auth_jwt("demo-token")
+  auth = trino_auth_jwt("demo-token"),
+  allow_http_auth = TRUE
 )
 cat("with the right JWT:", dbIsValid(con_jwt),
     "| rows:", nrow(dbGetQuery(con_jwt, "SELECT 1")), "\n")
@@ -175,9 +194,13 @@ cat(get("password", envir = environment(basic)),
 say("TLS options")
 print(trino_ssl())
 print(trino_ssl(verify = FALSE))
-cat("applying verify = FALSE warns: ")
+cat("connecting with verify = FALSE warns once: ")
 cat(conditionMessage(tryCatch(
-  trino_ssl_options(httr2::request("https://x"), trino_ssl(verify = FALSE)),
+  dbConnect(Trino(),
+            host = paste0(url$scheme, "://", url$hostname),
+            port = as.integer(url$port),
+            catalog = "memory", schema = "default",
+            ssl_options = trino_ssl(verify = FALSE)),
   warning = identity
 )), "\n")
 

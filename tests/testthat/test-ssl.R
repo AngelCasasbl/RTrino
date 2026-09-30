@@ -5,12 +5,11 @@ test_that("trino_ssl() verifies certificates by default", {
   expect_s3_class(opts, "trino_ssl_options")
 })
 
-test_that("disabling verification warns every time it is applied", {
+test_that("disabling verification turns off curl's checks without warning", {
   req <- httr2::request("https://example.com")
-  expect_warning(
-    trino_ssl_options(req, trino_ssl(verify = FALSE)),
-    "SSL verification disabled"
-  )
+  expect_no_warning(req <- trino_ssl_options(req, trino_ssl(verify = FALSE)))
+  expect_identical(req$options$ssl_verifypeer, 0L)
+  expect_identical(req$options$ssl_verifyhost, 0L)
 })
 
 test_that("a CA bundle is passed to curl and must exist", {
@@ -25,6 +24,11 @@ test_that("a CA bundle is passed to curl and must exist", {
     trino_ssl(ca_bundle = file.path(tempdir(), "no-such-ca.pem")),
     "CA bundle not found"
   )
+})
+
+test_that("TLS options print what they will do", {
+  expect_output(print(trino_ssl()), "verify: TRUE")
+  expect_output(print(trino_ssl()), "ca_bundle: <system>")
 })
 
 test_that("trino_ssl() validates verify", {
@@ -49,7 +53,7 @@ test_that("dbConnect() rejects ssl_options that are not from trino_ssl()", {
   )
 })
 
-test_that("the warning fires on each request, not only on connect", {
+test_that("the warning fires once on connect, not on each request", {
   proc <- local_trino_app()
   url <- httr2::url_parse(proc$url())
   expect_warning(
@@ -63,8 +67,5 @@ test_that("the warning fires on each request, not only on connect", {
     "SSL verification disabled"
   )
   withr::defer(try(DBI::dbDisconnect(con), silent = TRUE))
-  # One warning per HTTP call, and a query makes several.
-  warnings <- testthat::capture_warnings(DBI::dbGetQuery(con, "SELECT 1"))
-  expect_true(all(grepl("SSL verification disabled", warnings)))
-  expect_gte(length(warnings), 2L)
+  expect_no_warning(DBI::dbGetQuery(con, "SELECT 1"))
 })

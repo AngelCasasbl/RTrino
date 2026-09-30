@@ -1,0 +1,6 @@
+{"name":"empty","sql":"SELECT orderkey, orderstatus, totalprice FROM tpch.tiny.orders WHERE false","trino":"483"}
+{"id":"20260929_140558_00017_372gc","nextUri":"{{next}}","stats":{"state":"QUEUED"}}
+{"id":"20260929_140558_00017_372gc","nextUri":"{{next}}","stats":{"state":"QUEUED"}}
+{"id":"20260929_140558_00017_372gc","nextUri":"{{next}}","stats":{"state":"QUEUED"}}
+{"id":"20260929_140558_00017_372gc","nextUri":"{{next}}","columns":[{"name":"orderkey","type":"bigint","typeSignature":{"rawType":"bigint","arguments":[]}},{"name":"orderstatus","type":"varchar(1)","typeSignature":{"rawType":"varchar","arguments":[{"kind":"LONG","value":1}]}},{"name":"totalprice","type":"double","typeSignature":{"rawType":"double","arguments":[]}}],"stats":{"state":"RUNNING"}}
+{"id":"20260929_140558_00017_372gc","columns":[{"name":"orderkey","type":"bigint","typeSignature":{"rawType":"bigint","arguments":[]}},{"name":"orderstatus","type":"varchar(1)","typeSignature":{"rawType":"varchar","arguments":[{"kind":"LONG","value":1}]}},{"name":"totalprice","type":"double","typeSignature":{"rawType":"double","arguments":[]}}],"stats":{"state":"FINISHED"}}

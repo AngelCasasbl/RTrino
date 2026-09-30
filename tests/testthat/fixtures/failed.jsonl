@@ -1,0 +1,4 @@
+{"name":"failed","sql":"SELECT no_such_column FROM tpch.tiny.nation","trino":"483"}
+{"id":"20260929_140558_00018_372gc","nextUri":"{{next}}","stats":{"state":"QUEUED"}}
+{"id":"20260929_140558_00018_372gc","nextUri":"{{next}}","stats":{"state":"QUEUED"}}
+{"id":"20260929_140558_00018_372gc","stats":{"state":"FAILED"},"error":{"message":"line 1:8: Column 'no_such_column' cannot be resolved","errorCode":47,"errorName":"COLUMN_NOT_FOUND","errorType":"USER_ERROR"}}

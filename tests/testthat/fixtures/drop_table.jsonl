@@ -1,0 +1,5 @@
+{"name":"drop_table","sql":"DROP TABLE memory.default.rtrino_fixture","trino":"483"}
+{"id":"20260929_140559_00022_372gc","nextUri":"{{next}}","stats":{"state":"QUEUED"}}
+{"id":"20260929_140559_00022_372gc","nextUri":"{{next}}","stats":{"state":"QUEUED"}}
+{"id":"20260929_140559_00022_372gc","nextUri":"{{next}}","stats":{"state":"QUEUED"}}
+{"id":"20260929_140559_00022_372gc","columns":[],"stats":{"state":"FINISHED"},"updateType":"DROP TABLE"}

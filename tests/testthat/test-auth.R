@@ -7,9 +7,16 @@ sent_authorization <- function(proc) {
   headers[["authorization"]]
 }
 
+# The fake coordinator speaks plain HTTP, so every connection here that carries
+# credentials has to allow that explicitly (see test-dbConnect.R).
+
 test_that("trino_auth_basic() sends basic credentials", {
   proc <- local_trino_app()
-  con <- local_trino_con(proc, auth = trino_auth_basic("angel", "secret"))
+  con <- local_trino_con(
+    proc,
+    auth = trino_auth_basic("angel", "secret"),
+    allow_http_auth = TRUE
+  )
 
   DBI::dbGetQuery(con, "SELECT 1")
   expect_identical(
@@ -20,7 +27,11 @@ test_that("trino_auth_basic() sends basic credentials", {
 
 test_that("trino_auth_jwt() sends a bearer token", {
   proc <- local_trino_app()
-  con <- local_trino_con(proc, auth = trino_auth_jwt("abc.def.ghi"))
+  con <- local_trino_con(
+    proc,
+    auth = trino_auth_jwt("abc.def.ghi"),
+    allow_http_auth = TRUE
+  )
 
   DBI::dbGetQuery(con, "SELECT 1")
   expect_identical(sent_authorization(proc), "Bearer abc.def.ghi")
@@ -43,7 +54,7 @@ test_that("authentication closures validate their arguments", {
   )
 })
 
-test_that("trino_auth_oauth2() builds a closure without contacting the provider", {
+test_that("trino_auth_oauth2() builds a closure without calling the provider", {
   auth <- trino_auth_oauth2(
     client_id = "id",
     client_secret = "secret",
@@ -67,7 +78,11 @@ test_that("an authenticating server accepts the connection", {
   token <- "Bearer test-token"
   proc <- local_trino_app(require_auth = token)
 
-  con <- local_trino_con(proc, auth = trino_auth_jwt("test-token"))
+  con <- local_trino_con(
+    proc,
+    auth = trino_auth_jwt("test-token"),
+    allow_http_auth = TRUE
+  )
   expect_true(DBI::dbIsValid(con))
   expect_identical(nrow(DBI::dbGetQuery(con, "SELECT 1")), 2L)
 })
@@ -85,6 +100,10 @@ test_that("basic authentication reaches the server", {
   header <- paste0("Basic ", jsonlite::base64_enc(charToRaw("angel:secret")))
   proc <- local_trino_app(require_auth = header)
 
-  con <- local_trino_con(proc, auth = trino_auth_basic("angel", "secret"))
+  con <- local_trino_con(
+    proc,
+    auth = trino_auth_basic("angel", "secret"),
+    allow_http_auth = TRUE
+  )
   expect_true(DBI::dbIsValid(con))
 })

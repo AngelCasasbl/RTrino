@@ -1,0 +1,5 @@
+{"name":"create_table","sql":"CREATE TABLE memory.default.rtrino_fixture (id bigint, label varchar)","trino":"483"}
+{"id":"20260929_140558_00019_372gc","nextUri":"{{next}}","stats":{"state":"QUEUED"}}
+{"id":"20260929_140558_00019_372gc","nextUri":"{{next}}","stats":{"state":"QUEUED"}}
+{"id":"20260929_140558_00019_372gc","nextUri":"{{next}}","stats":{"state":"QUEUED"}}
+{"id":"20260929_140558_00019_372gc","columns":[],"stats":{"state":"FINISHED"},"updateType":"CREATE TABLE"}

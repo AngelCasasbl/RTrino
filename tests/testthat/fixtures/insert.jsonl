@@ -1,0 +1,8 @@
+{"name":"insert","sql":"INSERT INTO memory.default.rtrino_fixture VALUES (1, 'one'), (2, 'two')","trino":"483"}
+{"id":"20260929_140558_00020_372gc","nextUri":"{{next}}","stats":{"state":"QUEUED"}}
+{"id":"20260929_140558_00020_372gc","nextUri":"{{next}}","stats":{"state":"QUEUED"}}
+{"id":"20260929_140558_00020_372gc","nextUri":"{{next}}","stats":{"state":"QUEUED"}}
+{"id":"20260929_140558_00020_372gc","nextUri":"{{next}}","columns":[{"name":"rows","type":"bigint","typeSignature":{"rawType":"bigint","arguments":[]}}],"stats":{"state":"RUNNING"},"updateType":"INSERT"}
+{"id":"20260929_140558_00020_372gc","nextUri":"{{next}}","columns":[{"name":"rows","type":"bigint","typeSignature":{"rawType":"bigint","arguments":[]}}],"data":[[2]],"stats":{"state":"RUNNING"},"updateType":"INSERT","updateCount":2}
+{"id":"20260929_140558_00020_372gc","nextUri":"{{next}}","columns":[{"name":"rows","type":"bigint","typeSignature":{"rawType":"bigint","arguments":[]}}],"stats":{"state":"FINISHED"},"updateType":"INSERT","updateCount":2}
+{"id":"20260929_140558_00020_372gc","columns":[{"name":"rows","type":"bigint","typeSignature":{"rawType":"bigint","arguments":[]}}],"stats":{"state":"FINISHED"},"updateType":"INSERT","updateCount":2}

@@ -10,12 +10,64 @@
 # Each response's shape is chosen by the SQL text, so a test asks for the
 # scenario it wants by the statement it sends.
 #
+# Two kinds of scenario:
+#
+# * Recorded ones, replayed from tests/testthat/fixtures/*.jsonl, which
+#   dev/record-fixtures.R captured from a real Trino. Their pages are sent
+#   byte for byte, so they carry what Trino actually puts on the wire: BIGINT
+#   and DOUBLE as JSON numbers, columns described before any row arrives,
+#   updateType and updateCount. Anything about how values are encoded is
+#   tested against these, never against a payload made up here. A test sends
+#   the recorded statement, from `trino_fixture_sql()`.
+# * Synthetic ones, built below, for the protocol's control flow: pagination,
+#   queued and stalled queries, failures, cancellation.
+#
 # Everything the handlers need is defined inside `trino_fake_app()`: webfakes
 # runs the app in a separate process by serialising it, which carries the
 # handlers' own environment but nothing else from this file.
 
+trino_fixture_dir <- function() {
+  testthat::test_path("fixtures")
+}
+
+# name -> list(sql, pages), read once per app.
+trino_read_fixtures <- function() {
+  files <- list.files(trino_fixture_dir(), pattern = "\\.jsonl$",
+                      full.names = TRUE)
+  fixtures <- lapply(files, function(path) {
+    lines <- readLines(path, encoding = "UTF-8", warn = FALSE)
+    meta <- jsonlite::parse_json(lines[[1L]])
+    list(sql = meta$sql, pages = lines[-1L])
+  })
+  names(fixtures) <- sub("\\.jsonl$", "", basename(files))
+  fixtures
+}
+
+# The statement a recorded fixture answers.
+trino_fixture_sql <- function(name) {
+  fixture <- trino_read_fixtures()[[name]]
+  if (is.null(fixture)) stop("No recorded fixture named ", name)
+  fixture$sql
+}
+
 trino_fake_app <- function(require_auth = NULL) {
   `%|N|%` <- function(x, y) if (is.null(x)) y else x
+
+  fixtures <- trino_read_fixtures()
+  fixture_for <- function(sql) {
+    for (name in names(fixtures)) {
+      if (identical(fixtures[[name]]$sql, sql)) return(name)
+    }
+    NULL
+  }
+
+  # One recorded page, pointing its nextUri at the page after it.
+  send_fixture_page <- function(res, name, page, base) {
+    pages <- fixtures[[name]]$pages
+    next_uri <- paste0(base, "/v1/statement/fixture/", name, "/", page + 1L)
+    body <- sub("{{next}}", next_uri, pages[[page]], fixed = TRUE)
+    res$set_status(200L)$set_type("application/json")$send(body)
+  }
 
   # webfakes gives the full request URL, which is the only place the ephemeral
   # port the server picked is visible; nextUri must carry it.
@@ -40,11 +92,12 @@ trino_fake_app <- function(require_auth = NULL) {
       "describe"
     } else if (grepl("INFORMATION_SCHEMA.TABLES", sql, fixed = TRUE)) {
       # dbExistsTable(): the fake schema holds `sales` and `regions`, and the
-      # catalog `nowhere` does not exist.
+      # catalog `nowhere` does not exist. The names are compared through
+      # lower(), as the real query does.
       if (grepl('"nowhere"', raw, fixed = TRUE)) {
         "no_catalog"
-      } else if (grepl("'sales'", raw, fixed = TRUE) ||
-                   grepl("'regions'", raw, fixed = TRUE)) {
+      } else if (grepl("'sales'", tolower(raw), fixed = TRUE) ||
+                   grepl("'regions'", tolower(raw), fixed = TRUE)) {
         "count_one"
       } else {
         "count_zero"
@@ -61,8 +114,8 @@ trino_fake_app <- function(require_auth = NULL) {
       "queued"
     } else if (grepl("STALLED", sql)) {
       "stalled"
-    } else if (grepl("TYPES", sql)) {
-      "types"
+    } else if (grepl("ODDTYPE", sql)) {
+      "oddtype"
     } else {
       "simple"
     }
@@ -74,62 +127,23 @@ trino_fake_app <- function(require_auth = NULL) {
       typeSignature = list(rawType = "integer")
     )
   }
+  # count(*) is a BIGINT on a real cluster.
+  bigint_col <- function(name) {
+    list(
+      name = name, type = "bigint",
+      typeSignature = list(rawType = "bigint")
+    )
+  }
   chr_col <- function(name) {
     list(
       name = name, type = "varchar(20)",
       typeSignature = list(rawType = "varchar")
     )
   }
-
-  type_columns <- function() {
-    types <- c(
-      flag = "boolean",
-      small = "smallint",
-      n = "integer",
-      big = "bigint",
-      dbl = "double",
-      dec = "decimal(10,2)",
-      txt = "varchar(10)",
-      bin = "varbinary",
-      d = "date",
-      t = "time(3)",
-      ts = "timestamp(3)",
-      tsz = "timestamp(3) with time zone",
-      arr = "array(integer)",
-      mp = "map(varchar, integer)",
-      js = "json",
-      uid = "uuid",
-      nil = "varchar(5)"
-    )
-    lapply(names(types), function(nm) {
-      list(
-        name = nm, type = types[[nm]],
-        typeSignature = list(rawType = types[[nm]])
-      )
-    })
-  }
-
-  type_row <- function() {
-    list(
-      TRUE,
-      3L,
-      7L,
-      "9007199254740993",
-      1.5,
-      "12.34",
-      "hello",
-      jsonlite::base64_enc(as.raw(c(1L, 2L, 255L))),
-      "2026-01-15",
-      "10:30:00.000",
-      "2026-01-15 10:30:00.000",
-      "2026-01-15 10:30:00.000 UTC",
-      list(1L, 2L, 3L),
-      list(a = 1L),
-      "{\"k\": 1}",
-      "f79a24f4-0b3a-4a1b-9f61-4f2f3a9c1d5e",
-      NULL
-    )
-  }
+  odd_columns <- list(list(
+    name = "x", type = "hyperdimensional",
+    typeSignature = list(rawType = "hyperdimensional")
+  ))
 
   # One page of one scenario. Page 1 is the answer to the POST.
   fake_page <- function(scenario, page, base) {
@@ -214,12 +228,12 @@ trino_fake_app <- function(require_auth = NULL) {
       count_one = if (page == 1L) {
         running(2L)
       } else {
-        finished(columns = list(int_col("n")), data = list(list(1L)))
+        finished(columns = list(bigint_col("n")), data = list(list(1L)))
       },
       count_zero = if (page == 1L) {
         running(2L)
       } else {
-        finished(columns = list(int_col("n")), data = list(list(0L)))
+        finished(columns = list(bigint_col("n")), data = list(list(0L)))
       },
       no_catalog = if (page == 1L) {
         running(2L)
@@ -235,10 +249,13 @@ trino_fake_app <- function(require_auth = NULL) {
           )
         )
       },
-      types = if (page == 1L) {
+      # A type the package does not know, over two pages of one row each.
+      oddtype = if (page == 1L) {
         running(2L)
+      } else if (page == 2L) {
+        running(3L, columns = odd_columns, data = list(list("a")))
       } else {
-        finished(columns = type_columns(), data = list(type_row()))
+        finished(columns = odd_columns, data = list(list("b")))
       },
       tables = if (page == 1L) {
         running(2L)
@@ -270,6 +287,7 @@ trino_fake_app <- function(require_auth = NULL) {
   app$locals$last_headers <- NULL
   app$locals$last_body <- NULL
   app$locals$deleted <- character()
+  app$locals$flaky <- 0L
 
   app$use(webfakes::mw_text(type = "text/plain"))
 
@@ -293,6 +311,15 @@ trino_fake_app <- function(require_auth = NULL) {
       ),
       auto_unbox = TRUE
     )
+  })
+
+  # One app serves every test; each starts from a clean slate.
+  app$post("/test/reset", function(req, res) {
+    app$locals$last_headers <- NULL
+    app$locals$last_body <- NULL
+    app$locals$deleted <- character()
+    app$locals$flaky <- 0L
+    res$set_status(204L)$send("")
   })
 
   if (!is.null(require_auth)) {
@@ -322,11 +349,38 @@ trino_fake_app <- function(require_auth = NULL) {
   app$post("/v1/statement", function(req, res) {
     sql <- req$text %|N|% ""
     app$locals$last_body <- sql
+    # A load balancer's 502 on the first attempt, then the real answer.
+    if (grepl("FLAKY", toupper(sql)) && app$locals$flaky == 0L) {
+      app$locals$flaky <- 1L
+      return(res$set_status(502L)$send("Bad Gateway"))
+    }
+    # A coordinator that stops answering.
+    if (grepl("HANG", toupper(sql))) {
+      Sys.sleep(3)
+    }
+    recorded <- fixture_for(sql)
+    if (!is.null(recorded)) {
+      return(send_fixture_page(res, recorded, 1L, fake_base_url(req)))
+    }
     res$set_status(200L)$send_json(
       fake_page(scenario_for(sql), 1L, fake_base_url(req)),
       auto_unbox = TRUE,
       null = "null"
     )
+  })
+
+  app$get("/v1/statement/fixture/:name/:page", function(req, res) {
+    send_fixture_page(
+      res,
+      req$params$name,
+      as.integer(req$params$page),
+      fake_base_url(req)
+    )
+  })
+
+  app$delete("/v1/statement/fixture/:name/:page", function(req, res) {
+    app$locals$deleted <- c(app$locals$deleted, req$params$name)
+    res$set_status(204L)$send("")
   })
 
   app$get("/v1/statement/:scenario/:page", function(req, res) {
@@ -349,12 +403,27 @@ trino_fake_app <- function(require_auth = NULL) {
   app
 }
 
-# Start the fake server for the duration of the calling test file.
-local_trino_app <- function(require_auth = NULL, .local_envir = parent.frame()) {
-  webfakes::local_app_process(
-    trino_fake_app(require_auth),
-    .local_envir = .local_envir
+# The fake coordinators, one per authentication setting, shared by the whole
+# test run and reset before each test. Starting an R process for every test
+# made the suite slow, and on a loaded machine a start would now and then
+# time out.
+trino_apps <- new.env(parent = emptyenv())
+
+local_trino_app <- function(require_auth = NULL) {
+  key <- if (is.null(require_auth)) "open" else require_auth
+  proc <- trino_apps[[key]]
+  if (is.null(proc) || !identical(proc$get_state(), "live")) {
+    proc <- webfakes::new_app_process(
+      trino_fake_app(require_auth),
+      process_timeout = 60000L
+    )
+    trino_apps[[key]] <- proc
+    withr::defer(proc$stop(), envir = testthat::teardown_env())
+  }
+  httr2::req_perform(
+    httr2::req_method(httr2::request(proc$url("/test/reset")), "POST")
   )
+  proc
 }
 
 local_trino_con <- function(proc, ..., .local_envir = parent.frame()) {

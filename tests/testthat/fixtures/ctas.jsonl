@@ -1,0 +1,8 @@
+{"name":"ctas","sql":"CREATE TABLE memory.default.rtrino_fixture_copy AS SELECT * FROM memory.default.rtrino_fixture","trino":"483"}
+{"id":"20260929_140559_00021_372gc","nextUri":"{{next}}","stats":{"state":"QUEUED"}}
+{"id":"20260929_140559_00021_372gc","nextUri":"{{next}}","stats":{"state":"QUEUED"}}
+{"id":"20260929_140559_00021_372gc","nextUri":"{{next}}","stats":{"state":"QUEUED"}}
+{"id":"20260929_140559_00021_372gc","nextUri":"{{next}}","columns":[{"name":"rows","type":"bigint","typeSignature":{"rawType":"bigint","arguments":[]}}],"stats":{"state":"RUNNING"},"updateType":"CREATE TABLE"}
+{"id":"20260929_140559_00021_372gc","nextUri":"{{next}}","columns":[{"name":"rows","type":"bigint","typeSignature":{"rawType":"bigint","arguments":[]}}],"data":[[2]],"stats":{"state":"RUNNING"},"updateType":"CREATE TABLE","updateCount":2}
+{"id":"20260929_140559_00021_372gc","nextUri":"{{next}}","columns":[{"name":"rows","type":"bigint","typeSignature":{"rawType":"bigint","arguments":[]}}],"stats":{"state":"FINISHED"},"updateType":"CREATE TABLE","updateCount":2}
+{"id":"20260929_140559_00021_372gc","columns":[{"name":"rows","type":"bigint","typeSignature":{"rawType":"bigint","arguments":[]}}],"stats":{"state":"FINISHED"},"updateType":"CREATE TABLE","updateCount":2}
