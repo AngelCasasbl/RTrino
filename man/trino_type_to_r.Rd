@@ -7,7 +7,8 @@
 trino_type_to_r(type, bigint = c("integer64", "numeric", "character"))
 }
 \arguments{
-\item{type}{A Trino type name, with or without parameters.}
+\item{type}{A Trino type name, with or without parameters, as a single
+string.}
 
 \item{bigint}{How \code{BIGINT} is handled; see \code{\link[DBI:dbConnect]{dbConnect()}}.}
 }
