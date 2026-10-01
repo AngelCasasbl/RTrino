@@ -44,6 +44,9 @@ requests; no socket is kept open.
 \item{\code{timeout}}{Seconds allowed for each HTTP request, or \code{Inf}.}
 
 \item{\code{valid}}{Environment holding the connection's validity flag.}
+
+\item{\code{transaction}}{Environment holding the active transaction id, or
+\code{NULL} when there is none.}
 }}
 
 \keyword{internal}

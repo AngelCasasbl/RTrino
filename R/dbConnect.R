@@ -167,6 +167,9 @@ setMethod("dbConnect", "TrinoDriver", function(drv,
   valid <- new.env(parent = emptyenv())
   valid$open <- TRUE
 
+  transaction <- new.env(parent = emptyenv())
+  transaction$id <- NULL
+
   conn <- new(
     "TrinoConnection",
     host = host,
@@ -181,7 +184,8 @@ setMethod("dbConnect", "TrinoDriver", function(drv,
     auth = auth,
     ssl_options = unclass(ssl_options),
     timeout = timeout,
-    valid = valid
+    valid = valid,
+    transaction = transaction
   )
 
   # Fail here rather than on the user's first query. Only a failed request is

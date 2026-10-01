@@ -69,7 +69,7 @@ Collate:
     'dbCreateTable.R'
     'dbAppendTable.R'
     'dbWriteTable.R'
-    'unsupported.R'
+    'dbBegin.R'
     'dbplyr-dialect.R'
     'dbplyr-db.R'
     'dbplyr-simulate.R'

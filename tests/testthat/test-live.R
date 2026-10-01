@@ -210,6 +210,55 @@ test_that("query_max_run_time stops a query on the server", {
   expect_identical(cnd$error_name, "EXCEEDED_TIME_LIMIT")
 })
 
+# ----------------------------------------------------------- transactions --
+
+test_that("dbBegin() and dbCommit() round-trip against a real coordinator", {
+  con <- live_con(catalog = "memory", schema = "default")
+
+  expect_warning(DBI::dbBegin(con), "has no real transactional storage")
+  expect_identical(DBI::dbGetQuery(con, "SELECT 1 AS n")$n, 1L)
+  DBI::dbCommit(con)
+  expect_error(DBI::dbCommit(con), "No transaction is in progress")
+})
+
+test_that("a write Trino rejects inside a transaction aborts it, not RTrino", {
+  # Confirms the catalog filter's warning: memory's connector only writes
+  # using autocommit, so a write attempted inside an explicit transaction
+  # fails and aborts it. dbRollback() still recovers the connection.
+  con <- live_con(catalog = "memory", schema = "default")
+  name <- live_table()
+
+  suppressWarnings(DBI::dbBegin(con))
+  cnd <- tryCatch(
+    DBI::dbExecute(con, paste("CREATE TABLE", name, "(id bigint)")),
+    error = identity
+  )
+  expect_s3_class(cnd, "trino_query_error")
+  expect_identical(cnd$error_name, "AUTOCOMMIT_WRITE_CONFLICT")
+
+  DBI::dbRollback(con)
+  expect_error(DBI::dbRollback(con), "No transaction is in progress")
+  expect_false(DBI::dbExistsTable(con, name))
+  # The connection works normally again, outside any transaction.
+  expect_identical(DBI::dbGetQuery(con, "SELECT 1 AS n")$n, 1L)
+})
+
+test_that("dbWithTransaction() commits on success and rolls back on error", {
+  con <- live_con(catalog = "memory", schema = "default")
+
+  out <- suppressWarnings(DBI::dbWithTransaction(con, {
+    DBI::dbGetQuery(con, "SELECT 1")
+    42
+  }))
+  expect_identical(out, 42)
+
+  expect_error(
+    suppressWarnings(DBI::dbWithTransaction(con, stop("boom"))),
+    "boom"
+  )
+  expect_error(DBI::dbCommit(con), "No transaction is in progress")
+})
+
 # ----------------------------------------------------------------- dplyr --
 
 test_that("dplyr expressions compute in Trino what they compute in R", {

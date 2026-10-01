@@ -131,7 +131,32 @@ trino_perform <- function(conn,
     backoff = function(attempt) 0.1
   )
 
-  httr2::req_perform(req)
+  resp <- httr2::req_perform(req)
+  trino_absorb_transaction_headers(conn, resp)
+  resp
+}
+
+#' Track a transaction id across requests
+#'
+#' `START TRANSACTION` answers with `X-Trino-Started-Transaction-Id`, on
+#' the initial response or on any later page of its `nextUri` chain;
+#' `COMMIT` and `ROLLBACK` answer with `X-Trino-Clear-Transaction-Id`.
+#' Called from the single HTTP entry point, so every request a statement
+#' makes is checked, not just its first.
+#'
+#' @param conn A [TrinoConnection-class] object.
+#' @param resp An `httr2_response`.
+#' @return `NULL`, invisibly.
+#' @noRd
+trino_absorb_transaction_headers <- function(conn, resp) {
+  started <- httr2::resp_header(resp, "X-Trino-Started-Transaction-Id")
+  if (!is.null(started)) {
+    conn@transaction$id <- started
+  }
+  if (!is.null(httr2::resp_header(resp, "X-Trino-Clear-Transaction-Id"))) {
+    conn@transaction$id <- NULL
+  }
+  invisible(NULL)
 }
 
 #' Apply the connection's timeout to a request

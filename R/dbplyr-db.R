@@ -21,11 +21,14 @@ sql_query_explain.sql_dialect_trino <- function(con, sql, ...) {
 
 #' `copy_to()` for Trino
 #'
-#' Overrides dbplyr's default, which wraps the write in a transaction;
-#' RTrino has none ([dbBegin()][RTrino-unsupported]), so the write goes
-#' straight to [dbWriteTable()]. `temporary` defaults to `TRUE`, as in the
-#' generic, which means the call fails unless the caller passes
-#' `temporary = FALSE`: Trino has no temporary tables.
+#' Overrides dbplyr's default, which wraps the write in a transaction
+#' ([dbBegin()][dbBegin,TrinoConnection-method]). Whether that transaction
+#' could actually be rolled back depends on the catalog's connector, and
+#' `CREATE TABLE` itself is not something most connectors undo, so the
+#' write goes straight to [dbWriteTable()] instead, which already has its
+#' own way of playing it safe on `overwrite = TRUE`. `temporary` defaults
+#' to `TRUE`, as in the generic, which means the call fails unless the
+#' caller passes `temporary = FALSE`: Trino has no temporary tables.
 #'
 #' @param con A [TrinoConnection-class] object.
 #' @param table,values,overwrite,types,temporary Passed to [dbWriteTable()].

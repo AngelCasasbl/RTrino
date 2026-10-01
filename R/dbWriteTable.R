@@ -1,9 +1,9 @@
 #' Write a table
 #'
 #' Creates the table with [dbCreateTable()] and fills it with
-#' [dbAppendTable()]. Trino has no transactions
-#' ([dbBegin()][RTrino-unsupported]), so `overwrite = TRUE` plays it safe by
-#' renaming the existing table rather than dropping it, and restores it if
+#' [dbAppendTable()]. `CREATE TABLE` cannot be undone by [dbRollback()] on
+#' most connectors, so `overwrite = TRUE` plays it safe on its own: it
+#' renames the existing table rather than dropping it, and restores it if
 #' anything fails before the new table is fully written.
 #'
 #' @param conn A [TrinoConnection-class] object.

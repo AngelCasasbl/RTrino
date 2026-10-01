@@ -17,6 +17,8 @@
 #' @slot ssl_options SSL options as returned by [trino_ssl()].
 #' @slot timeout Seconds allowed for each HTTP request, or `Inf`.
 #' @slot valid Environment holding the connection's validity flag.
+#' @slot transaction Environment holding the active transaction id, or
+#'   `NULL` when there is none.
 #'
 #' @keywords internal
 #' @export
@@ -36,7 +38,8 @@ setClass(
     auth = "ANY",
     ssl_options = "list",
     timeout = "numeric",
-    valid = "environment"
+    valid = "environment",
+    transaction = "environment"
   )
 )
 

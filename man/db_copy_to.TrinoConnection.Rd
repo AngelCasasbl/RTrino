@@ -30,10 +30,13 @@ compatibility with the generic.}
 \code{table}.
 }
 \description{
-Overrides dbplyr's default, which wraps the write in a transaction;
-RTrino has none (\link[=RTrino-unsupported]{dbBegin()}), so the write goes
-straight to \code{\link[DBI:dbWriteTable]{dbWriteTable()}}. \code{temporary} defaults to \code{TRUE}, as in the
-generic, which means the call fails unless the caller passes
-\code{temporary = FALSE}: Trino has no temporary tables.
+Overrides dbplyr's default, which wraps the write in a transaction
+(\link[=dbBegin,TrinoConnection-method]{dbBegin()}). Whether that transaction
+could actually be rolled back depends on the catalog's connector, and
+\verb{CREATE TABLE} itself is not something most connectors undo, so the
+write goes straight to \code{\link[DBI:dbWriteTable]{dbWriteTable()}} instead, which already has its
+own way of playing it safe on \code{overwrite = TRUE}. \code{temporary} defaults
+to \code{TRUE}, as in the generic, which means the call fails unless the
+caller passes \code{temporary = FALSE}: Trino has no temporary tables.
 }
 \keyword{internal}

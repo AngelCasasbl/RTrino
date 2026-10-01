@@ -116,9 +116,31 @@ trino_fake_app <- function(require_auth = NULL) {
       "stalled"
     } else if (grepl("ODDTYPE", sql)) {
       "oddtype"
+    } else if (identical(sql, "START TRANSACTION")) {
+      "begin_transaction"
+    } else if (identical(sql, "COMMIT")) {
+      "commit_transaction"
+    } else if (identical(sql, "ROLLBACK")) {
+      "rollback_transaction"
     } else {
       "simple"
     }
+  }
+
+  # The transaction-control headers Trino sends alongside these three
+  # scenarios: a fake id on START TRANSACTION, and the clear flag on
+  # COMMIT/ROLLBACK, the same shape on every page as the real coordinator
+  # (so the client picks them up from whichever page answers first).
+  transaction_header <- function(scenario) {
+    switch(
+      scenario,
+      begin_transaction = list(
+        "X-Trino-Started-Transaction-Id" = "fake-transaction-id"
+      ),
+      commit_transaction = ,
+      rollback_transaction = list("X-Trino-Clear-Transaction-Id" = "true"),
+      NULL
+    )
   }
 
   int_col <- function(name) {
@@ -265,6 +287,13 @@ trino_fake_app <- function(require_auth = NULL) {
           data = list(list("sales"), list("regions"))
         )
       },
+      begin_transaction = ,
+      commit_transaction = ,
+      rollback_transaction = if (page == 1L) {
+        running(2L)
+      } else {
+        finished()
+      },
       describe = if (page == 1L) {
         running(2L)
       } else {
@@ -362,8 +391,12 @@ trino_fake_app <- function(require_auth = NULL) {
     if (!is.null(recorded)) {
       return(send_fixture_page(res, recorded, 1L, fake_base_url(req)))
     }
+    scenario <- scenario_for(sql)
+    for (header in names(transaction_header(scenario))) {
+      res$set_header(header, transaction_header(scenario)[[header]])
+    }
     res$set_status(200L)$send_json(
-      fake_page(scenario_for(sql), 1L, fake_base_url(req)),
+      fake_page(scenario, 1L, fake_base_url(req)),
       auto_unbox = TRUE,
       null = "null"
     )
@@ -384,6 +417,9 @@ trino_fake_app <- function(require_auth = NULL) {
   })
 
   app$get("/v1/statement/:scenario/:page", function(req, res) {
+    for (header in names(transaction_header(req$params$scenario))) {
+      res$set_header(header, transaction_header(req$params$scenario)[[header]])
+    }
     res$set_status(200L)$send_json(
       fake_page(
         req$params$scenario,
@@ -432,15 +468,18 @@ sent_body <- function(proc) {
 
 local_trino_con <- function(proc, ..., .local_envir = parent.frame()) {
   url <- httr2::url_parse(proc$url())
-  con <- DBI::dbConnect(
-    RTrino::Trino(),
-    host = paste0(url$scheme, "://", url$hostname),
-    port = as.integer(url$port),
-    user = "tester",
-    catalog = "memory",
-    schema = "default",
-    ...
+  args <- utils::modifyList(
+    list(
+      RTrino::Trino(),
+      host = paste0(url$scheme, "://", url$hostname),
+      port = as.integer(url$port),
+      user = "tester",
+      catalog = "memory",
+      schema = "default"
+    ),
+    list(...)
   )
+  con <- do.call(DBI::dbConnect, args)
   withr::defer(
     suppressWarnings(try(DBI::dbDisconnect(con), silent = TRUE)),
     envir = .local_envir

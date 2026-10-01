@@ -8,6 +8,15 @@
 #' reads date-time types of any precision. Without it Trino treats the client
 #' as a legacy one and rounds every `TIMESTAMP` and `TIME` to milliseconds.
 #'
+#' `X-Trino-Transaction-Id` is always present, `"NONE"` outside a
+#' transaction: Trino takes the header's mere presence, on every request
+#' since the connection's first, as the client's declaration that it
+#' understands the transaction protocol and will carry the id it is given
+#' back on later requests. A client that only adds the header once it
+#' starts a transaction has never made that declaration, and
+#' [dbBegin()][dbBegin,TrinoConnection-method] gets `INCOMPATIBLE_CLIENT`
+#' instead of a transaction id.
+#'
 #' @param conn A [TrinoConnection-class] object.
 #' @param extra Named list of additional headers.
 #' @return A named list of headers.
@@ -21,6 +30,7 @@ trino_headers <- function(conn, extra = list()) {
     "X-Trino-Time-Zone" = conn@session.timezone,
     "X-Trino-Language" = "en-US",
     "X-Trino-Client-Capabilities" = "PARAMETRIC_DATETIME",
+    "X-Trino-Transaction-Id" = conn@transaction$id %||% "NONE",
     "Accept" = "application/json"
   )
 

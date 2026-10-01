@@ -49,9 +49,9 @@ with \code{append}.}
 }
 \description{
 Creates the table with \code{\link[DBI:dbCreateTable]{dbCreateTable()}} and fills it with
-\code{\link[DBI:dbAppendTable]{dbAppendTable()}}. Trino has no transactions
-(\link[=RTrino-unsupported]{dbBegin()}), so \code{overwrite = TRUE} plays it safe by
-renaming the existing table rather than dropping it, and restores it if
+\code{\link[DBI:dbAppendTable]{dbAppendTable()}}. \verb{CREATE TABLE} cannot be undone by \code{\link[DBI:dbRollback]{dbRollback()}} on
+most connectors, so \code{overwrite = TRUE} plays it safe on its own: it
+renames the existing table rather than dropping it, and restores it if
 anything fails before the new table is fully written.
 }
 \examples{
