@@ -262,13 +262,13 @@ test_that("collect() pulls rows through dbFetch()", {
   expect_identical(nrow(out), 8L)
 })
 
-test_that("copy_to() says RTrino does not upload data", {
+test_that("copy_to() needs temporary = FALSE, as Trino has no temporary tables", {
   proc <- local_trino_app()
   con <- local_trino_con(proc)
 
   expect_error(
     dplyr::copy_to(con, data.frame(x = 1), "t"),
-    "does not upload data from R"
+    "Temporary tables not supported by RTrino"
   )
 })
 

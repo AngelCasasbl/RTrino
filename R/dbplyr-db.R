@@ -19,14 +19,19 @@ sql_query_explain.sql_dialect_trino <- function(con, sql, ...) {
   dbplyr::sql_glue2(con, "EXPLAIN {.sql sql}")
 }
 
-#' `copy_to()` is not supported
+#' `copy_to()` for Trino
 #'
-#' RTrino does not upload data from R; see [RTrino-unsupported].
+#' Overrides dbplyr's default, which wraps the write in a transaction;
+#' RTrino has none ([dbBegin()][RTrino-unsupported]), so the write goes
+#' straight to [dbWriteTable()]. `temporary` defaults to `TRUE`, as in the
+#' generic, which means the call fails unless the caller passes
+#' `temporary = FALSE`: Trino has no temporary tables.
 #'
 #' @param con A [TrinoConnection-class] object.
-#' @param table,values,overwrite,types,temporary Unused.
-#' @param unique_indexes,indexes,analyze,in_transaction,... Unused.
-#' @return Never returns.
+#' @param table,values,overwrite,types,temporary Passed to [dbWriteTable()].
+#' @param unique_indexes,indexes,analyze,in_transaction,... Unused, for
+#'   compatibility with the generic.
+#' @return `table`.
 #' @keywords internal
 #' @exportS3Method NULL
 db_copy_to.TrinoConnection <- function(con, table, values, ...,
@@ -34,5 +39,12 @@ db_copy_to.TrinoConnection <- function(con, table, values, ...,
                                        temporary = TRUE,
                                        unique_indexes = NULL, indexes = NULL,
                                        analyze = TRUE, in_transaction = TRUE) {
-  trino_abort_upload("copy_to()")
+  # dbplyr hands `table` over as a dbplyr_table_path, already rendered into
+  # a quoted identifier string; wrapping it as SQL tells trino_table_parts()
+  # not to quote it a second time.
+  dbWriteTable(
+    con, DBI::SQL(as.character(table)), values,
+    field.types = types, temporary = temporary, overwrite = overwrite
+  )
+  table
 }

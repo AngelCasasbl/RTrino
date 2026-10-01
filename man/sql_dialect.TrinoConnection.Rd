@@ -14,10 +14,10 @@ A \code{dbplyr} SQL dialect object.
 }
 \description{
 Describes Trino to \code{dbplyr} so that \code{dplyr} verbs on a
-\link[=TrinoConnection-class]{TrinoConnection} are translated to SQL Trino accepts. Registered as
-an S3 method for \code{dbplyr::sql_dialect()}, the extension point introduced in
-dbplyr 2.6.0, which separates the SQL dialect from the connection
-mechanism.
+\link[=TrinoConnection-class]{TrinoConnection} are translated to SQL Trino accepts. Registered,
+when dbplyr 2.6.0 or later is loaded, as an S3 method for
+\code{dbplyr::sql_dialect()}, the extension point that version introduced, which
+separates the SQL dialect from the connection mechanism.
 }
 \details{
 Trino quotes identifiers with double quotes (the SQL standard), supports the

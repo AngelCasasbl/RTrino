@@ -426,6 +426,10 @@ local_trino_app <- function(require_auth = NULL) {
   proc
 }
 
+sent_body <- function(proc) {
+  jsonlite::fromJSON(proc$url("/test/last-request"))$body
+}
+
 local_trino_con <- function(proc, ..., .local_envir = parent.frame()) {
   url <- httr2::url_parse(proc$url())
   con <- DBI::dbConnect(

@@ -35,10 +35,6 @@ test_that("dbExistsTable() ignores case, as Trino's identifiers do", {
   expect_match(last$body, "table_name = lower('SALES')", fixed = TRUE)
 })
 
-sent_body <- function(proc) {
-  jsonlite::fromJSON(proc$url("/test/last-request"))$body
-}
-
 test_that("tables can be named with DBI::Id()", {
   proc <- local_trino_app()
   con <- local_trino_con(proc)

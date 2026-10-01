@@ -2,23 +2,11 @@
 % Please edit documentation in R/unsupported.R
 \name{RTrino-unsupported}
 \alias{RTrino-unsupported}
-\alias{dbWriteTable,TrinoConnection,ANY-method}
-\alias{dbWriteTable,TrinoConnection,Id-method}
-\alias{dbAppendTable,TrinoConnection-method}
-\alias{dbCreateTable,TrinoConnection-method}
 \alias{dbBegin,TrinoConnection-method}
 \alias{dbCommit,TrinoConnection-method}
 \alias{dbRollback,TrinoConnection-method}
 \title{What RTrino does not do}
 \usage{
-\S4method{dbWriteTable}{TrinoConnection,ANY}(conn, name, value, ...)
-
-\S4method{dbWriteTable}{TrinoConnection,Id}(conn, name, value, ...)
-
-\S4method{dbAppendTable}{TrinoConnection}(conn, name, value, ..., row.names = NULL)
-
-\S4method{dbCreateTable}{TrinoConnection}(conn, name, fields, ..., row.names = NULL, temporary = FALSE)
-
 \S4method{dbBegin}{TrinoConnection}(conn, ...)
 
 \S4method{dbCommit}{TrinoConnection}(conn, ...)
@@ -28,31 +16,15 @@
 \arguments{
 \item{conn}{A \link[=TrinoConnection-class]{TrinoConnection} object.}
 
-\item{name, value, fields, temporary, row.names}{Unused.}
-
 \item{...}{Unused.}
 }
 \value{
 Never returns.
 }
 \description{
-RTrino reads from Trino; it does not upload data frames, and it does not
-manage transactions. These methods exist so that the attempt fails with a
-message that says so, rather than with an error from deep inside DBI.
-}
-\details{
-\itemize{
-\item \code{dbWriteTable()}, \code{dbAppendTable()} and \code{dbCreateTable()}: create and fill
-tables with SQL run through
-\link[=dbExecute,TrinoConnection,character-method]{dbExecute()}, such as
-\verb{CREATE TABLE ... AS SELECT ...} or \verb{INSERT INTO ... SELECT ...}. Values
-from R can be put into such a statement with \code{\link[DBI:sqlInterpolate]{DBI::sqlInterpolate()}}.
-\item \code{dbBegin()}, \code{dbCommit()} and \code{dbRollback()}: every statement runs in a
-transaction of its own, committed when it finishes.
-}
-
-For the same reason \code{dplyr::copy_to()} is not supported, and
-\code{dplyr::compute()} needs \code{temporary = FALSE}, as Trino has no temporary
-tables.
+RTrino does not manage transactions: every statement runs and is
+committed on its own, so \code{dbBegin()}, \code{dbCommit()} and \code{dbRollback()} fail
+with a message that says so, rather than with an error from deep inside
+DBI.
 }
 \keyword{internal}

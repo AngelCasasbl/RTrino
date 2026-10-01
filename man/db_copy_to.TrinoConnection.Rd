@@ -2,7 +2,7 @@
 % Please edit documentation in R/dbplyr-db.R
 \name{db_copy_to.TrinoConnection}
 \alias{db_copy_to.TrinoConnection}
-\title{\code{copy_to()} is not supported}
+\title{\code{copy_to()} for Trino}
 \usage{
 db_copy_to.TrinoConnection(
   con,
@@ -21,14 +21,19 @@ db_copy_to.TrinoConnection(
 \arguments{
 \item{con}{A \link[=TrinoConnection-class]{TrinoConnection} object.}
 
-\item{table, values, overwrite, types, temporary}{Unused.}
+\item{table, values, overwrite, types, temporary}{Passed to \code{\link[DBI:dbWriteTable]{dbWriteTable()}}.}
 
-\item{unique_indexes, indexes, analyze, in_transaction, ...}{Unused.}
+\item{unique_indexes, indexes, analyze, in_transaction, ...}{Unused, for
+compatibility with the generic.}
 }
 \value{
-Never returns.
+\code{table}.
 }
 \description{
-RTrino does not upload data from R; see \link{RTrino-unsupported}.
+Overrides dbplyr's default, which wraps the write in a transaction;
+RTrino has none (\link[=RTrino-unsupported]{dbBegin()}), so the write goes
+straight to \code{\link[DBI:dbWriteTable]{dbWriteTable()}}. \code{temporary} defaults to \code{TRUE}, as in the
+generic, which means the call fails unless the caller passes
+\code{temporary = FALSE}: Trino has no temporary tables.
 }
 \keyword{internal}

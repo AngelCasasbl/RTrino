@@ -281,6 +281,89 @@ test_that("dates move by periods and compare with R dates", {
   expect_identical(as.integer(remote$n), sum(dates >= since))
 })
 
+# ------------------------------------------------------------ writing --
+
+test_that("dbWriteTable() round-trips mixed types through dbReadTable()", {
+  con <- live_con(catalog = "memory", schema = "default")
+  name <- live_table()
+  withr::defer(DBI::dbExecute(con, paste("DROP TABLE IF EXISTS", name)))
+
+  value <- data.frame(
+    id = bit64::as.integer64(c(1, 2)),
+    price = c(1.5, NA),
+    label = c("a", NA),
+    flag = c(TRUE, NA),
+    day = as.Date(c("2026-01-15", NA)),
+    stringsAsFactors = FALSE
+  )
+  DBI::dbWriteTable(con, name, value)
+  expect_true(DBI::dbExistsTable(con, name))
+  out <- as.data.frame(DBI::dbReadTable(con, name))
+  expect_identical(out[order(out$id), ], value[order(value$id), ])
+})
+
+test_that("dbWriteTable(overwrite = TRUE) replaces an existing table", {
+  con <- live_con(catalog = "memory", schema = "default")
+  name <- live_table()
+  withr::defer(DBI::dbExecute(con, paste("DROP TABLE IF EXISTS", name)))
+
+  DBI::dbWriteTable(con, name, data.frame(id = 1L))
+  expect_message(
+    DBI::dbWriteTable(con, name, data.frame(id = 2L), overwrite = TRUE),
+    "is overwritten"
+  )
+  expect_identical(DBI::dbReadTable(con, name)$id, 2L)
+})
+
+test_that("dbWriteTable(append = TRUE) accumulates rows", {
+  con <- live_con(catalog = "memory", schema = "default")
+  name <- live_table()
+  withr::defer(DBI::dbExecute(con, paste("DROP TABLE IF EXISTS", name)))
+
+  DBI::dbWriteTable(con, name, data.frame(id = 1L))
+  DBI::dbWriteTable(con, name, data.frame(id = 2L), append = TRUE)
+  expect_identical(sort(DBI::dbReadTable(con, name)$id), c(1L, 2L))
+})
+
+test_that("dbWriteTable() errors when the table exists and neither flag is set", {
+  con <- live_con(catalog = "memory", schema = "default")
+  name <- live_table()
+  DBI::dbWriteTable(con, name, data.frame(id = 1L))
+  withr::defer(DBI::dbExecute(con, paste("DROP TABLE IF EXISTS", name)))
+
+  expect_error(
+    DBI::dbWriteTable(con, name, data.frame(id = 2L)),
+    "exists in database, and both overwrite and append are FALSE"
+  )
+})
+
+test_that("dbAppendTable() batches a data frame larger than chunk_size", {
+  con <- live_con(catalog = "memory", schema = "default")
+  name <- live_table()
+  withr::defer(DBI::dbExecute(con, paste("DROP TABLE IF EXISTS", name)))
+
+  value <- data.frame(id = seq_len(25L))
+  DBI::dbWriteTable(con, name, value[0L, , drop = FALSE])
+  inserted <- DBI::dbAppendTable(con, name, value, chunk_size = 10L)
+  expect_identical(inserted, 25)
+  expect_identical(sort(DBI::dbReadTable(con, name)$id), value$id)
+})
+
+test_that("dplyr::copy_to() writes a permanent table", {
+  skip_if_not_installed("dbplyr", "2.6.0")
+  skip_if_not_installed("dplyr")
+  con <- live_con(catalog = "memory", schema = "default")
+  name <- live_table()
+  withr::defer(DBI::dbExecute(con, paste("DROP TABLE IF EXISTS", name)))
+
+  expect_error(
+    dplyr::copy_to(con, data.frame(id = 1L), name),
+    "Temporary tables not supported by RTrino"
+  )
+  tbl <- dplyr::copy_to(con, data.frame(id = 1L), name, temporary = FALSE)
+  expect_identical(dplyr::collect(tbl)$id, 1L)
+})
+
 test_that("compute() writes a permanent table", {
   skip_if_not_installed("dbplyr", "2.6.0")
   skip_if_not_installed("dplyr")
