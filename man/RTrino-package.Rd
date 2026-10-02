@@ -6,7 +6,7 @@
 \alias{RTrino-package}
 \title{RTrino: 'DBI' Backend for 'Trino'}
 \description{
-A 'DBI' compliant backend for 'Trino' \url{https://trino.io}, the distributed SQL query engine (successor of 'PrestoSQL'). Connects to a 'Trino' cluster over its HTTP REST API, executes queries with automatic pagination, maps 'Trino' types to R types, and integrates with 'dplyr' through 'dbplyr' SQL dialects. Supports basic, JWT bearer and OAuth2 client credentials authentication, as well as custom certificate authorities.
+A 'DBI' compliant backend for 'Trino' \url{https://trino.io}, the distributed SQL query engine (successor of 'PrestoSQL'). Connects to a 'Trino' cluster over its HTTP REST API, executes queries with automatic pagination, maps 'Trino' types to R types, and integrates with 'dplyr' through 'dbplyr' SQL dialects. Supports basic, JSON Web Token (JWT) bearer and OAuth2 client credentials authentication, as well as custom certificate authorities.
 }
 \seealso{
 Useful links:
@@ -17,11 +17,11 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: Luis A Casas Ballestas \email{angelcasasbl@gmail.com}
+\strong{Maintainer}: Luis A Casas Ballestas \email{luisangelcasasbl@gmail.com} [copyright holder]
 
 Authors:
 \itemize{
-  \item Luis A Casas Ballestas \email{angelcasasbl@gmail.com}
+  \item Luis A Casas Ballestas \email{luisangelcasasbl@gmail.com} [copyright holder]
 }
 
 }
