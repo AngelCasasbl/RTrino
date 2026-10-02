@@ -1,0 +1,87 @@
+url: https://angelcasasbl.github.io/RTrino/
+
+template:
+  bootstrap: 5
+  light-switch: true
+
+development:
+  mode: auto
+
+reference:
+- title: Connect
+  desc: >
+    Open a connection to a Trino coordinator, choose how to authenticate and
+    how to verify its certificate.
+  contents:
+  - Trino
+  - dbConnect,TrinoDriver-method
+  - trino_auth
+  - trino_ssl
+  - dbDisconnect,TrinoConnection-method
+  - dbIsValid,TrinoConnection-method
+  - dbGetInfo,TrinoConnection-method
+
+- title: Run queries
+  desc: >
+    Submit SQL and pull the rows back, in one go or in chunks.
+  contents:
+  - dbGetQuery,TrinoConnection,character-method
+  - dbSendQuery,TrinoConnection,character-method
+  - dbSendStatement,TrinoConnection,character-method
+  - dbExecute,TrinoConnection,character-method
+  - dbFetch,TrinoResult-method
+  - dbHasCompleted,TrinoResult-method
+  - dbClearResult,TrinoResult-method
+  - dbBind,TrinoResult-method
+
+- title: Tables
+  desc: >
+    Inspect, create, fill and drop tables.
+  contents:
+  - dbListTables,TrinoConnection-method
+  - dbListFields,TrinoConnection,character-method
+  - dbExistsTable,TrinoConnection,character-method
+  - dbCreateTable,TrinoConnection-method
+  - dbAppendTable,TrinoConnection-method
+  - dbWriteTable,TrinoConnection,ANY-method
+  - dbRenameTable
+  - dbRemoveTable,TrinoConnection,character-method
+
+- title: Transactions
+  contents:
+  - dbBegin,TrinoConnection-method
+
+- title: Quoting and types
+  desc: >
+    Turn R values into Trino SQL, and Trino types into R types.
+  contents:
+  - dbQuoteIdentifier,TrinoConnection,character-method
+  - dbQuoteLiteral,TrinoConnection-method
+  - dbDataType,TrinoConnection-method
+  - trino_type_to_r
+
+- title: dplyr and dbplyr
+  desc: >
+    The SQL dialect that lets `dplyr` pipelines run in Trino.
+  contents:
+  - simulate_trino
+  - sql_dialect.TrinoConnection
+  - sql_translation.sql_dialect_trino
+  - sql_escape_date.sql_dialect_trino
+  - sql_query_explain.sql_dialect_trino
+  - sql_query_save.sql_dialect_trino
+  - db_copy_to.TrinoConnection
+  - dbplyr_edition.TrinoConnection
+
+- title: Classes
+  contents:
+  - TrinoDriver-class
+  - TrinoConnection-class
+  - TrinoResult-class
+  - RTrino-package
+
+articles:
+- title: Get started
+  navbar: ~
+  contents:
+  - getting-started
