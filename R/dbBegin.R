@@ -45,12 +45,17 @@ trino_check_transactional_catalog <- function(conn) {
 #' @param ... Unused, for compatibility with the generic.
 #' @return `TRUE`, invisibly.
 #' @export
-#' @examples
-#' \dontrun{
+#' @examplesIf nzchar(Sys.getenv("RTRINO_TEST_URL"))
+#' con <- DBI::dbConnect(RTrino::Trino(), host = Sys.getenv("RTRINO_TEST_URL"),
+#'                       catalog = "tpch", schema = "tiny")
+#'
+#' # tpch holds no real storage, so dbBegin() warns that a ROLLBACK would
+#' # undo nothing. On an Iceberg or Delta Lake catalog it would not.
 #' DBI::dbBegin(con)
-#' DBI::dbExecute(con, "INSERT INTO sales VALUES (1, 'a')")
+#' DBI::dbGetQuery(con, "SELECT count(*) AS n FROM nation")
 #' DBI::dbCommit(con)
-#' }
+#'
+#' DBI::dbDisconnect(con)
 setMethod("dbBegin", "TrinoConnection", function(conn, ...) {
   trino_check_valid(conn)
   if (!is.null(conn@transaction$id)) {

@@ -10,10 +10,11 @@
 #' @return A list with `db.version`, `host`, `port`, `user`, `catalog` and
 #'   `schema`.
 #' @export
-#' @examples
-#' \dontrun{
+#' @examplesIf nzchar(Sys.getenv("RTRINO_TEST_URL"))
+#' con <- DBI::dbConnect(RTrino::Trino(), host = Sys.getenv("RTRINO_TEST_URL"),
+#'                       catalog = "tpch", schema = "tiny")
 #' DBI::dbGetInfo(con)
-#' }
+#' DBI::dbDisconnect(con)
 setMethod("dbGetInfo", "TrinoConnection", function(dbObj, ...) {
   trino_check_valid(dbObj)
   version <- tryCatch(

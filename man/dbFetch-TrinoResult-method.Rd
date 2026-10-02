@@ -27,12 +27,16 @@ converts each column to its R type according to the column's declared Trino
 type and the connection's \code{bigint} setting.
 }
 \examples{
-\dontrun{
-res <- DBI::dbSendQuery(con, "SELECT * FROM sales")
+\dontshow{if (nzchar(Sys.getenv("RTRINO_TEST_URL"))) withAutoprint(\{ # examplesIf}
+con <- DBI::dbConnect(RTrino::Trino(), host = Sys.getenv("RTRINO_TEST_URL"),
+                      catalog = "tpch", schema = "tiny")
+res <- DBI::dbSendQuery(con, "SELECT * FROM orders")
 while (!DBI::dbHasCompleted(res)) {
-  chunk <- DBI::dbFetch(res, n = 1000)
-  # process chunk
+  chunk <- DBI::dbFetch(res, n = 4000)
+  # process chunk; here, just count its rows
+  cat(nrow(chunk), "rows\n")
 }
 DBI::dbClearResult(res)
-}
+DBI::dbDisconnect(con)
+\dontshow{\}) # examplesIf}
 }

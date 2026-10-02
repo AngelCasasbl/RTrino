@@ -59,6 +59,10 @@ Trino rejects basic and bearer credentials over plain HTTP, so use an
 \verb{https://} host with all three.
 }
 \examples{
+# Only builds the credential; nothing is sent until a connection uses it
+auth <- trino_auth_basic("analyst", Sys.getenv("TRINO_PASSWORD"))
+
+# Needs a cluster that authenticates with a password
 \dontrun{
 con <- DBI::dbConnect(
   RTrino::Trino(),
@@ -67,7 +71,7 @@ con <- DBI::dbConnect(
   user    = "analyst",
   catalog = "hive",
   schema  = "default",
-  auth    = trino_auth_basic("analyst", Sys.getenv("TRINO_PASSWORD"))
+  auth    = auth
 )
 }
 }

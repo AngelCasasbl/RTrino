@@ -32,8 +32,11 @@ single quotes with embedded single quotes doubled. A value that is already
 \code{\link[DBI:SQL]{DBI::SQL()}} is returned unchanged rather than quoted a second time.
 }
 \examples{
-\dontrun{
+\dontshow{if (nzchar(Sys.getenv("RTRINO_TEST_URL"))) withAutoprint(\{ # examplesIf}
+con <- DBI::dbConnect(RTrino::Trino(), host = Sys.getenv("RTRINO_TEST_URL"),
+                      catalog = "tpch", schema = "tiny")
 DBI::dbQuoteIdentifier(con, "my column")
 DBI::dbQuoteString(con, "O'Brien")
-}
+DBI::dbDisconnect(con)
+\dontshow{\}) # examplesIf}
 }

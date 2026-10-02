@@ -16,13 +16,15 @@
 #' @return A logical scalar. A name in a catalog or schema that does not exist
 #'   is simply `FALSE`, not an error.
 #' @export
-#' @examples
-#' \dontrun{
-#' DBI::dbExistsTable(con, "sales")
-#' DBI::dbExistsTable(con, "hive.analytics.sales")
-#' DBI::dbExistsTable(con, DBI::Id(catalog = "hive", schema = "analytics",
-#'                                 table = "sales"))
-#' }
+#' @examplesIf nzchar(Sys.getenv("RTRINO_TEST_URL"))
+#' con <- DBI::dbConnect(RTrino::Trino(), host = Sys.getenv("RTRINO_TEST_URL"),
+#'                       catalog = "tpch", schema = "tiny")
+#' DBI::dbExistsTable(con, "nation")
+#' DBI::dbExistsTable(con, "tpch.sf1.nation")
+#' DBI::dbExistsTable(con, DBI::Id(catalog = "tpch", schema = "sf1",
+#'                                 table = "nation"))
+#' DBI::dbExistsTable(con, "no_such_table")
+#' DBI::dbDisconnect(con)
 setMethod(
   "dbExistsTable", c("TrinoConnection", "character"),
   function(conn, name, ...) {

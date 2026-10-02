@@ -26,7 +26,13 @@ Not a DBI generic: DBI has no \code{dbRenameTable()}, so RTrino defines its
 own, the way RPresto does for Presto.
 }
 \examples{
-\dontrun{
+\dontshow{if (nzchar(Sys.getenv("RTRINO_TEST_URL"))) withAutoprint(\{ # examplesIf}
+con <- DBI::dbConnect(RTrino::Trino(), host = Sys.getenv("RTRINO_TEST_URL"),
+                      catalog = "memory", schema = "default")
+DBI::dbWriteTable(con, "sales", data.frame(id = 1:3))
 dbRenameTable(con, "sales", "sales_old")
-}
+DBI::dbExistsTable(con, "sales_old")
+DBI::dbRemoveTable(con, "sales_old")
+DBI::dbDisconnect(con)
+\dontshow{\}) # examplesIf}
 }

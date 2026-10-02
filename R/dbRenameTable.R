@@ -9,10 +9,14 @@
 #' @param ... Unused, for compatibility with the generic.
 #' @return `TRUE`, invisibly.
 #' @export
-#' @examples
-#' \dontrun{
+#' @examplesIf nzchar(Sys.getenv("RTRINO_TEST_URL"))
+#' con <- DBI::dbConnect(RTrino::Trino(), host = Sys.getenv("RTRINO_TEST_URL"),
+#'                       catalog = "memory", schema = "default")
+#' DBI::dbWriteTable(con, "sales", data.frame(id = 1:3))
 #' dbRenameTable(con, "sales", "sales_old")
-#' }
+#' DBI::dbExistsTable(con, "sales_old")
+#' DBI::dbRemoveTable(con, "sales_old")
+#' DBI::dbDisconnect(con)
 setGeneric(
   "dbRenameTable",
   function(conn, name, new_name, ...) standardGeneric("dbRenameTable")

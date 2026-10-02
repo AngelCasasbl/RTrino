@@ -26,7 +26,12 @@
 Drop a table
 }
 \examples{
-\dontrun{
+\dontshow{if (nzchar(Sys.getenv("RTRINO_TEST_URL"))) withAutoprint(\{ # examplesIf}
+con <- DBI::dbConnect(RTrino::Trino(), host = Sys.getenv("RTRINO_TEST_URL"),
+                      catalog = "memory", schema = "default")
+DBI::dbWriteTable(con, "sales", data.frame(id = 1:3))
 DBI::dbRemoveTable(con, "sales")
-}
+DBI::dbExistsTable(con, "sales")
+DBI::dbDisconnect(con)
+\dontshow{\}) # examplesIf}
 }

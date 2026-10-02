@@ -21,7 +21,10 @@ Reports the connection's settings plus the coordinator's version, read from
 than an error, so the rest of the metadata stays available.
 }
 \examples{
-\dontrun{
+\dontshow{if (nzchar(Sys.getenv("RTRINO_TEST_URL"))) withAutoprint(\{ # examplesIf}
+con <- DBI::dbConnect(RTrino::Trino(), host = Sys.getenv("RTRINO_TEST_URL"),
+                      catalog = "tpch", schema = "tiny")
 DBI::dbGetInfo(con)
-}
+DBI::dbDisconnect(con)
+\dontshow{\}) # examplesIf}
 }

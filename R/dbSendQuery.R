@@ -16,19 +16,21 @@
 #'
 #' @return A [TrinoResult-class] object.
 #' @export
-#' @examples
-#' \dontrun{
+#' @examplesIf nzchar(Sys.getenv("RTRINO_TEST_URL"))
+#' con <- DBI::dbConnect(RTrino::Trino(), host = Sys.getenv("RTRINO_TEST_URL"),
+#'                       catalog = "tpch", schema = "tiny")
 #' res <- DBI::dbSendQuery(con, "SELECT 1 AS n")
 #' DBI::dbFetch(res)
 #' DBI::dbClearResult(res)
 #'
 #' # Values go into the SQL as literals, quoted for Trino
 #' sql <- DBI::sqlInterpolate(
-#'   con, "SELECT * FROM orders WHERE orderdate >= ?since",
-#'   since = as.Date("2026-01-01")
+#'   con, "SELECT count(*) AS n FROM orders WHERE orderdate >= ?since",
+#'   since = as.Date("1998-01-01")
 #' )
 #' DBI::dbGetQuery(con, sql)
-#' }
+#'
+#' DBI::dbDisconnect(con)
 setMethod(
   "dbSendQuery", c("TrinoConnection", "character"),
   function(conn, statement, ...) {

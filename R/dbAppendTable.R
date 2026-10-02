@@ -16,10 +16,14 @@
 #' @param row.names Unused: RTrino never writes row names as a column.
 #' @return The number of rows inserted.
 #' @export
-#' @examples
-#' \dontrun{
+#' @examplesIf nzchar(Sys.getenv("RTRINO_TEST_URL"))
+#' con <- DBI::dbConnect(RTrino::Trino(), host = Sys.getenv("RTRINO_TEST_URL"),
+#'                       catalog = "memory", schema = "default")
+#' DBI::dbCreateTable(con, "sales", c(id = "integer", label = "varchar"))
 #' DBI::dbAppendTable(con, "sales", data.frame(id = 1:3, label = letters[1:3]))
-#' }
+#' DBI::dbGetQuery(con, "SELECT * FROM sales ORDER BY id")
+#' DBI::dbRemoveTable(con, "sales")
+#' DBI::dbDisconnect(con)
 setMethod(
   "dbAppendTable", "TrinoConnection",
   function(conn, name, value, ..., row.names = NULL) {

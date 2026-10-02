@@ -5,10 +5,13 @@
 #' @param ... Unused, for compatibility with the generic.
 #' @return `TRUE`, invisibly.
 #' @export
-#' @examples
-#' \dontrun{
+#' @examplesIf nzchar(Sys.getenv("RTRINO_TEST_URL"))
+#' con <- DBI::dbConnect(RTrino::Trino(), host = Sys.getenv("RTRINO_TEST_URL"),
+#'                       catalog = "memory", schema = "default")
+#' DBI::dbWriteTable(con, "sales", data.frame(id = 1:3))
 #' DBI::dbRemoveTable(con, "sales")
-#' }
+#' DBI::dbExistsTable(con, "sales")
+#' DBI::dbDisconnect(con)
 setMethod(
   "dbRemoveTable", c("TrinoConnection", "character"),
   function(conn, name, ...) {

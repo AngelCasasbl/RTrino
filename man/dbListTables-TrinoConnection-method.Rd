@@ -18,7 +18,10 @@ A character vector of table names.
 List the tables in the connection's schema
 }
 \examples{
-\dontrun{
+\dontshow{if (nzchar(Sys.getenv("RTRINO_TEST_URL"))) withAutoprint(\{ # examplesIf}
+con <- DBI::dbConnect(RTrino::Trino(), host = Sys.getenv("RTRINO_TEST_URL"),
+                      catalog = "tpch", schema = "tiny")
 DBI::dbListTables(con)
-}
+DBI::dbDisconnect(con)
+\dontshow{\}) # examplesIf}
 }

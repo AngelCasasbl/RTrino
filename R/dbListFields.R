@@ -9,11 +9,12 @@
 #' @param ... Unused, for compatibility with the generic.
 #' @return A character vector of column names.
 #' @export
-#' @examples
-#' \dontrun{
-#' DBI::dbListFields(con, "sales")
-#' DBI::dbListFields(con, DBI::Id(schema = "analytics", table = "sales"))
-#' }
+#' @examplesIf nzchar(Sys.getenv("RTRINO_TEST_URL"))
+#' con <- DBI::dbConnect(RTrino::Trino(), host = Sys.getenv("RTRINO_TEST_URL"),
+#'                       catalog = "tpch", schema = "tiny")
+#' DBI::dbListFields(con, "nation")
+#' DBI::dbListFields(con, DBI::Id(schema = "sf1", table = "region"))
+#' DBI::dbDisconnect(con)
 setMethod(
   "dbListFields", c("TrinoConnection", "character"),
   function(conn, name, ...) {

@@ -31,7 +31,13 @@ with values quoted as literals by \code{\link[DBI:sqlAppendTable]{DBI::sqlAppend
 parameter binding to fall back on.
 }
 \examples{
-\dontrun{
+\dontshow{if (nzchar(Sys.getenv("RTRINO_TEST_URL"))) withAutoprint(\{ # examplesIf}
+con <- DBI::dbConnect(RTrino::Trino(), host = Sys.getenv("RTRINO_TEST_URL"),
+                      catalog = "memory", schema = "default")
+DBI::dbCreateTable(con, "sales", c(id = "integer", label = "varchar"))
 DBI::dbAppendTable(con, "sales", data.frame(id = 1:3, label = letters[1:3]))
-}
+DBI::dbGetQuery(con, "SELECT * FROM sales ORDER BY id")
+DBI::dbRemoveTable(con, "sales")
+DBI::dbDisconnect(con)
+\dontshow{\}) # examplesIf}
 }

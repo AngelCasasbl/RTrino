@@ -52,16 +52,20 @@
 #' @return A [TrinoConnection-class] object.
 #'
 #' @export
-#' @examples
-#' \dontrun{
-#' # Internal cluster, no authentication
+#' @examplesIf nzchar(Sys.getenv("RTRINO_TEST_URL"))
+#' # The examples in this package run against the coordinator that
+#' # RTRINO_TEST_URL points at, such as "http://localhost:8080" for
+#' # `docker run -p 8080:8080 trinodb/trino`. It has no authentication.
 #' con <- DBI::dbConnect(
 #'   RTrino::Trino(),
-#'   host = "http://localhost", port = 8080,
-#'   catalog = "hive", schema = "default"
+#'   host = Sys.getenv("RTRINO_TEST_URL"),
+#'   catalog = "tpch", schema = "tiny"
 #' )
+#' con
+#' DBI::dbDisconnect(con)
 #'
 #' # LDAP over TLS, with limits for use in a Shiny app
+#' \dontrun{
 #' con <- DBI::dbConnect(
 #'   RTrino::Trino(),
 #'   host    = "https://trino.example.com",
@@ -74,7 +78,6 @@
 #'   timeout = 30,
 #'   query_max_run_time = "5m"
 #' )
-#'
 #' DBI::dbDisconnect(con)
 #' }
 setMethod("dbConnect", "TrinoDriver", function(drv,
