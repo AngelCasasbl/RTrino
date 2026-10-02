@@ -1,0 +1,322 @@
+# RTrino
+
+A [DBI](https://dbi.r-dbi.org) backend for [Trino](https://trino.io),
+the distributed SQL query engine (the successor of PrestoSQL).
+
+`RTrino` talks to a Trino coordinator over its HTTP REST API, so there
+is no client library to install and nothing to compile. It is built on
+[httr2](https://httr2.r-lib.org) and on the `sql_dialect()` extension
+point introduced in dbplyr 2.6.0.
+
+## Installation
+
+``` r
+
+# install.packages("pak")
+pak::pak("AngelCasasbl/RTrino")
+```
+
+## Usage
+
+``` r
+
+library(DBI)
+library(RTrino)
+
+con <- dbConnect(
+  Trino(),
+  host    = "https://trino.example.com",
+  port    = 443,
+  user    = Sys.getenv("TRINO_USER"),
+  catalog = "hive",
+  schema  = "analytics",
+  auth    = trino_auth_basic(Sys.getenv("TRINO_USER"), Sys.getenv("TRINO_PASSWORD"))
+)
+
+dbGetQuery(con, "SELECT region, sum(amount) AS total FROM sales GROUP BY region")
+
+library(dplyr)
+tbl(con, "sales") |>
+  filter(year == 2026) |>
+  group_by(region) |>
+  summarise(total = sum(amount, na.rm = TRUE)) |>
+  collect()
+
+dbDisconnect(con)
+```
+
+See
+[`vignette("getting-started", package = "RTrino")`](https://angelcasasbl.github.io/RTrino/articles/getting-started.md)
+for authentication, certificate authorities, chunked fetching and the
+`dplyr` translations.
+
+## What it does
+
+- Connects over HTTP or HTTPS and probes `/v1/info`, so a bad address or
+  a rejected credential fails at
+  [`dbConnect()`](https://dbi.r-dbi.org/reference/dbConnect.html) rather
+  than at your first query.
+- Follows Trino’s `nextUri` pagination, and handles every state the
+  protocol can report (`QUEUED`, `PLANNING`, `RUNNING`, `FINISHED`,
+  `FAILED`, `CANCELED`).
+- Maps Trino types to R types without losing precision: `BIGINT` comes
+  back as exact
+  [`bit64::integer64`](https://bit64.r-lib.org/reference/bit64-package.html)
+  by default, `DOUBLE` bit for bit, and timestamps to the microsecond.
+- Reports the rows a statement changed from
+  [`dbExecute()`](https://dbi.r-dbi.org/reference/dbExecute.html), and
+  accepts table names as strings,
+  [`DBI::Id()`](https://dbi.r-dbi.org/reference/Id.html) or quoted
+  identifiers.
+- Writes data frames with
+  [`dbWriteTable()`](https://dbi.r-dbi.org/reference/dbWriteTable.html),
+  [`dbAppendTable()`](https://dbi.r-dbi.org/reference/dbAppendTable.html)
+  and
+  [`dbCreateTable()`](https://dbi.r-dbi.org/reference/dbCreateTable.html),
+  and renames or drops tables with
+  [`dbRenameTable()`](https://angelcasasbl.github.io/RTrino/reference/dbRenameTable.md)
+  and
+  [`dbRemoveTable()`](https://dbi.r-dbi.org/reference/dbRemoveTable.html).
+  `dbWriteTable(overwrite = TRUE)` renames the existing table instead of
+  dropping it, and puts it back if the write fails.
+- Wraps statements in Trino transactions with
+  [`dbBegin()`](https://dbi.r-dbi.org/reference/transactions.html),
+  [`dbCommit()`](https://dbi.r-dbi.org/reference/transactions.html),
+  [`dbRollback()`](https://dbi.r-dbi.org/reference/transactions.html)
+  and
+  [`dbWithTransaction()`](https://dbi.r-dbi.org/reference/dbWithTransaction.html).
+- Cancels a query on the server when its result is cleared while still
+  running.
+- Bounds each HTTP request with a `timeout`, and a query’s run time on
+  the cluster with `query_max_run_time`.
+- Authenticates with basic credentials, a bearer JWT or OAuth2 client
+  credentials — each held in a closure, never in a global variable — and
+  refuses to send them over plain HTTP.
+- Trusts an internal certificate authority without turning verification
+  off.
+- Translates `dplyr` pipelines to Trino SQL when dbplyr (\>= 2.6.0) is
+  installed, so that an expression computes in Trino what it computes in
+  R.
+
+## Limits
+
+- Parameter binding: put values into a statement with
+  [`DBI::sqlInterpolate()`](https://dbi.r-dbi.org/reference/sqlInterpolate.html),
+  which quotes them as typed Trino literals. Passing `params` is an
+  error.
+- Writing is done with `INSERT INTO ... VALUES`, one statement per
+  `chunk_size` rows (1000 by default), with every value written into the
+  SQL as a literal. It suits tables of thousands of rows, not bulk
+  loads: for those, write files in your data lake and let Trino read
+  them.
+- Trino has no temporary tables, so `temporary = TRUE` is an error, and
+  [`dplyr::copy_to()`](https://dplyr.tidyverse.org/reference/copy_to.html)
+  and [`compute()`](https://dplyr.tidyverse.org/reference/compute.html)
+  need `temporary = FALSE` and a table name.
+- Whether
+  [`dbRollback()`](https://dbi.r-dbi.org/reference/transactions.html)
+  undoes a write depends on the connector behind the catalog, not on
+  RTrino. Iceberg and Delta Lake tables support it; the `memory`, `tpch`
+  and other catalogs that hold no real storage do not, and
+  [`dbBegin()`](https://dbi.r-dbi.org/reference/transactions.html) warns
+  when the connection’s catalog is one of them.
+
+The vignette lists the few places where a `dplyr` translation cannot
+match R, such as [`round()`](https://rdrr.io/r/base/Round.html) on
+halves and the approximate
+[`median()`](https://rdrr.io/r/stats/median.html).
+
+## Authentication
+
+| Method | Helper | Typical use |
+|----|----|----|
+| Basic | `trino_auth_basic(user, password)` | LDAP, password file |
+| Bearer JWT | `trino_auth_jwt(token)` | service accounts, pipelines |
+| OAuth2 client credentials | `trino_auth_oauth2(client_id, client_secret, token_url)` | corporate SSO; the token is renewed automatically |
+
+## Development
+
+R 4.1.0 or newer. The test suite runs offline against a fake Trino
+coordinator built with [webfakes](https://webfakes.r-lib.org), so no
+cluster is needed. The fake replays responses recorded from a real Trino
+(`tests/testthat/fixtures`, captured with `dev/record-fixtures.R`), so
+the tests read the payloads a cluster really sends:
+
+``` r
+
+devtools::test()
+devtools::check()
+```
+
+With a Trino at hand, the integration tests in
+`tests/testthat/test-live.R` also run: they compare every value with
+Trino’s own rendering of it, and run the SQL of the `dplyr` translations
+against what R computes on the same rows.
+
+``` r
+
+# docker run --rm -d -p 8080:8080 --name trino trinodb/trino
+Sys.setenv(RTRINO_TEST_URL = "http://localhost:8080")
+devtools::test()
+```
+
+## License
+
+BSD 3-Clause. See
+[LICENSE.md](https://github.com/AngelCasasbl/RTrino/blob/main/LICENSE.md).
+
+# Package index
+
+## Connect
+
+Open a connection to a Trino coordinator, choose how to authenticate and
+how to verify its certificate.
+
+- [`Trino()`](https://angelcasasbl.github.io/RTrino/reference/Trino.md)
+  : Instantiate the Trino driver
+- [`dbConnect(`*`<TrinoDriver>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbConnect-TrinoDriver-method.md)
+  : Connect to a Trino cluster
+- [`trino_auth_basic()`](https://angelcasasbl.github.io/RTrino/reference/trino_auth.md)
+  [`trino_auth_jwt()`](https://angelcasasbl.github.io/RTrino/reference/trino_auth.md)
+  [`trino_auth_oauth2()`](https://angelcasasbl.github.io/RTrino/reference/trino_auth.md)
+  : Authentication methods for Trino
+- [`trino_ssl()`](https://angelcasasbl.github.io/RTrino/reference/trino_ssl.md)
+  : TLS options for a Trino connection
+- [`dbDisconnect(`*`<TrinoConnection>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbDisconnect-TrinoConnection-method.md)
+  : Disconnect from Trino
+- [`dbIsValid(`*`<TrinoConnection>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbIsValid-TrinoConnection-method.md)
+  [`dbIsValid(`*`<TrinoResult>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbIsValid-TrinoConnection-method.md)
+  : Is this connection or result still usable?
+- [`dbGetInfo(`*`<TrinoConnection>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbGetInfo-TrinoConnection-method.md)
+  : Metadata about a Trino connection
+
+## Run queries
+
+Submit SQL and pull the rows back, in one go or in chunks.
+
+- [`dbGetQuery(`*`<TrinoConnection>`*`,`*`<character>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbGetQuery-TrinoConnection-character-method.md)
+  : Run a query and return all of its rows
+- [`dbSendQuery(`*`<TrinoConnection>`*`,`*`<character>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbSendQuery-TrinoConnection-character-method.md)
+  : Submit a statement to Trino
+- [`dbSendStatement(`*`<TrinoConnection>`*`,`*`<character>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbSendStatement-TrinoConnection-character-method.md)
+  : Submit a statement that changes something
+- [`dbExecute(`*`<TrinoConnection>`*`,`*`<character>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbExecute-TrinoConnection-character-method.md)
+  : Execute a statement that returns no rows
+- [`dbFetch(`*`<TrinoResult>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbFetch-TrinoResult-method.md)
+  : Fetch rows from a Trino result
+- [`dbHasCompleted(`*`<TrinoResult>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbHasCompleted-TrinoResult-method.md)
+  : Have all rows of a result been consumed?
+- [`dbClearResult(`*`<TrinoResult>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbClearResult-TrinoResult-method.md)
+  : Release a Trino result
+- [`dbBind(`*`<TrinoResult>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbBind-TrinoResult-method.md)
+  : Parameters are not supported
+
+## Tables
+
+Inspect, create, fill and drop tables.
+
+- [`dbListTables(`*`<TrinoConnection>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbListTables-TrinoConnection-method.md)
+  : List the tables in the connection's schema
+- [`dbListFields(`*`<TrinoConnection>`*`,`*`<character>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbListFields-TrinoConnection-character-method.md)
+  [`dbListFields(`*`<TrinoConnection>`*`,`*`<Id>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbListFields-TrinoConnection-character-method.md)
+  [`dbListFields(`*`<TrinoConnection>`*`,`*`<ANY>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbListFields-TrinoConnection-character-method.md)
+  : List a table's columns
+- [`dbExistsTable(`*`<TrinoConnection>`*`,`*`<character>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbExistsTable-TrinoConnection-character-method.md)
+  [`dbExistsTable(`*`<TrinoConnection>`*`,`*`<Id>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbExistsTable-TrinoConnection-character-method.md)
+  [`dbExistsTable(`*`<TrinoConnection>`*`,`*`<ANY>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbExistsTable-TrinoConnection-character-method.md)
+  : Does a table exist?
+- [`dbCreateTable(`*`<TrinoConnection>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbCreateTable-TrinoConnection-method.md)
+  : Create a table
+- [`dbAppendTable(`*`<TrinoConnection>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbAppendTable-TrinoConnection-method.md)
+  : Insert rows into an existing table
+- [`dbWriteTable(`*`<TrinoConnection>`*`,`*`<ANY>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbWriteTable-TrinoConnection-ANY-method.md)
+  [`dbWriteTable(`*`<TrinoConnection>`*`,`*`<Id>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbWriteTable-TrinoConnection-ANY-method.md)
+  : Write a table
+- [`dbRenameTable()`](https://angelcasasbl.github.io/RTrino/reference/dbRenameTable.md)
+  : Rename a table
+- [`dbRemoveTable(`*`<TrinoConnection>`*`,`*`<character>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbRemoveTable-TrinoConnection-character-method.md)
+  [`dbRemoveTable(`*`<TrinoConnection>`*`,`*`<Id>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbRemoveTable-TrinoConnection-character-method.md)
+  [`dbRemoveTable(`*`<TrinoConnection>`*`,`*`<ANY>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbRemoveTable-TrinoConnection-character-method.md)
+  : Drop a table
+
+## Transactions
+
+- [`dbBegin(`*`<TrinoConnection>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbBegin-TrinoConnection-method.md)
+  [`dbCommit(`*`<TrinoConnection>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbBegin-TrinoConnection-method.md)
+  [`dbRollback(`*`<TrinoConnection>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbBegin-TrinoConnection-method.md)
+  : Start, commit and roll back a transaction
+
+## Quoting and types
+
+Turn R values into Trino SQL, and Trino types into R types.
+
+- [`dbQuoteIdentifier(`*`<TrinoConnection>`*`,`*`<character>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbQuoteIdentifier-TrinoConnection-character-method.md)
+  [`dbQuoteIdentifier(`*`<TrinoConnection>`*`,`*`<SQL>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbQuoteIdentifier-TrinoConnection-character-method.md)
+  [`dbQuoteString(`*`<TrinoConnection>`*`,`*`<character>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbQuoteIdentifier-TrinoConnection-character-method.md)
+  [`dbQuoteString(`*`<TrinoConnection>`*`,`*`<SQL>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbQuoteIdentifier-TrinoConnection-character-method.md)
+  : Quote identifiers and strings for Trino
+- [`dbQuoteLiteral(`*`<TrinoConnection>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbQuoteLiteral-TrinoConnection-method.md)
+  : Quote R values as Trino literals
+- [`dbDataType(`*`<TrinoConnection>`*`)`](https://angelcasasbl.github.io/RTrino/reference/dbDataType-TrinoConnection-method.md)
+  : Map an R type to a Trino type
+- [`trino_type_to_r()`](https://angelcasasbl.github.io/RTrino/reference/trino_type_to_r.md)
+  : Map a Trino type to the name of an R type
+
+## dplyr and dbplyr
+
+The SQL dialect that lets `dplyr` pipelines run in Trino.
+
+- [`simulate_trino()`](https://angelcasasbl.github.io/RTrino/reference/simulate_trino.md)
+  : A Trino connection that never talks to a server
+
+- [`sql_dialect.TrinoConnection()`](https://angelcasasbl.github.io/RTrino/reference/sql_dialect.TrinoConnection.md)
+  : SQL dialect for Trino
+
+- [`sql_translation.sql_dialect_trino()`](https://angelcasasbl.github.io/RTrino/reference/sql_translation.sql_dialect_trino.md)
+  : Function translations for Trino
+
+- [`sql_escape_date.sql_dialect_trino()`](https://angelcasasbl.github.io/RTrino/reference/sql_escape_date.sql_dialect_trino.md)
+  [`sql_escape_datetime.sql_dialect_trino()`](https://angelcasasbl.github.io/RTrino/reference/sql_escape_date.sql_dialect_trino.md)
+  : Literal dates and date-times in dplyr pipelines
+
+- [`sql_query_explain.sql_dialect_trino()`](https://angelcasasbl.github.io/RTrino/reference/sql_query_explain.sql_dialect_trino.md)
+  : Explain a Trino query
+
+- [`sql_query_save.sql_dialect_trino()`](https://angelcasasbl.github.io/RTrino/reference/sql_query_save.sql_dialect_trino.md)
+  [`sql_table_analyze.sql_dialect_trino()`](https://angelcasasbl.github.io/RTrino/reference/sql_query_save.sql_dialect_trino.md)
+  : Saving a query as a table
+
+- [`db_copy_to.TrinoConnection()`](https://angelcasasbl.github.io/RTrino/reference/db_copy_to.TrinoConnection.md)
+  :
+
+  [`copy_to()`](https://dplyr.tidyverse.org/reference/copy_to.html) for
+  Trino
+
+- [`dbplyr_edition.TrinoConnection()`](https://angelcasasbl.github.io/RTrino/reference/dbplyr_edition.TrinoConnection.md)
+  : dbplyr edition used by Trino connections
+
+## Classes
+
+- [`show(`*`<TrinoDriver>`*`)`](https://angelcasasbl.github.io/RTrino/reference/TrinoDriver-class.md)
+  [`dbIsValid(`*`<TrinoDriver>`*`)`](https://angelcasasbl.github.io/RTrino/reference/TrinoDriver-class.md)
+  [`dbGetInfo(`*`<TrinoDriver>`*`)`](https://angelcasasbl.github.io/RTrino/reference/TrinoDriver-class.md)
+  [`dbUnloadDriver(`*`<TrinoDriver>`*`)`](https://angelcasasbl.github.io/RTrino/reference/TrinoDriver-class.md)
+  : Trino driver class
+- [`show(`*`<TrinoConnection>`*`)`](https://angelcasasbl.github.io/RTrino/reference/TrinoConnection-class.md)
+  : Trino connection class
+- [`show(`*`<TrinoResult>`*`)`](https://angelcasasbl.github.io/RTrino/reference/TrinoResult-class.md)
+  [`dbGetStatement(`*`<TrinoResult>`*`)`](https://angelcasasbl.github.io/RTrino/reference/TrinoResult-class.md)
+  [`dbGetRowCount(`*`<TrinoResult>`*`)`](https://angelcasasbl.github.io/RTrino/reference/TrinoResult-class.md)
+  [`dbGetRowsAffected(`*`<TrinoResult>`*`)`](https://angelcasasbl.github.io/RTrino/reference/TrinoResult-class.md)
+  [`dbColumnInfo(`*`<TrinoResult>`*`)`](https://angelcasasbl.github.io/RTrino/reference/TrinoResult-class.md)
+  : Trino result class
+- [`RTrino`](https://angelcasasbl.github.io/RTrino/reference/RTrino-package.md)
+  [`RTrino-package`](https://angelcasasbl.github.io/RTrino/reference/RTrino-package.md)
+  : RTrino: 'DBI' Backend for 'Trino'
+
+# Articles
+
+### Get started
+
+- [Getting started with
+  RTrino](https://angelcasasbl.github.io/RTrino/articles/getting-started.md):

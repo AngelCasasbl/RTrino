@@ -1,0 +1,5 @@
+# License
+
+    YEAR: 2026
+    COPYRIGHT HOLDER: Luis A Casas Ballestas
+    ORGANIZATION: Luis A Casas Ballestas

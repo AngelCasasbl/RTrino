@@ -1,0 +1,166 @@
+# RTrino
+
+A [DBI](https://dbi.r-dbi.org) backend for [Trino](https://trino.io),
+the distributed SQL query engine (the successor of PrestoSQL).
+
+`RTrino` talks to a Trino coordinator over its HTTP REST API, so there
+is no client library to install and nothing to compile. It is built on
+[httr2](https://httr2.r-lib.org) and on the `sql_dialect()` extension
+point introduced in dbplyr 2.6.0.
+
+## Installation
+
+``` r
+
+# install.packages("pak")
+pak::pak("AngelCasasbl/RTrino")
+```
+
+## Usage
+
+``` r
+
+library(DBI)
+library(RTrino)
+
+con <- dbConnect(
+  Trino(),
+  host    = "https://trino.example.com",
+  port    = 443,
+  user    = Sys.getenv("TRINO_USER"),
+  catalog = "hive",
+  schema  = "analytics",
+  auth    = trino_auth_basic(Sys.getenv("TRINO_USER"), Sys.getenv("TRINO_PASSWORD"))
+)
+
+dbGetQuery(con, "SELECT region, sum(amount) AS total FROM sales GROUP BY region")
+
+library(dplyr)
+tbl(con, "sales") |>
+  filter(year == 2026) |>
+  group_by(region) |>
+  summarise(total = sum(amount, na.rm = TRUE)) |>
+  collect()
+
+dbDisconnect(con)
+```
+
+See
+[`vignette("getting-started", package = "RTrino")`](https://angelcasasbl.github.io/RTrino/articles/getting-started.md)
+for authentication, certificate authorities, chunked fetching and the
+`dplyr` translations.
+
+## What it does
+
+- Connects over HTTP or HTTPS and probes `/v1/info`, so a bad address or
+  a rejected credential fails at
+  [`dbConnect()`](https://dbi.r-dbi.org/reference/dbConnect.html) rather
+  than at your first query.
+- Follows Trino’s `nextUri` pagination, and handles every state the
+  protocol can report (`QUEUED`, `PLANNING`, `RUNNING`, `FINISHED`,
+  `FAILED`, `CANCELED`).
+- Maps Trino types to R types without losing precision: `BIGINT` comes
+  back as exact
+  [`bit64::integer64`](https://bit64.r-lib.org/reference/bit64-package.html)
+  by default, `DOUBLE` bit for bit, and timestamps to the microsecond.
+- Reports the rows a statement changed from
+  [`dbExecute()`](https://dbi.r-dbi.org/reference/dbExecute.html), and
+  accepts table names as strings,
+  [`DBI::Id()`](https://dbi.r-dbi.org/reference/Id.html) or quoted
+  identifiers.
+- Writes data frames with
+  [`dbWriteTable()`](https://dbi.r-dbi.org/reference/dbWriteTable.html),
+  [`dbAppendTable()`](https://dbi.r-dbi.org/reference/dbAppendTable.html)
+  and
+  [`dbCreateTable()`](https://dbi.r-dbi.org/reference/dbCreateTable.html),
+  and renames or drops tables with
+  [`dbRenameTable()`](https://angelcasasbl.github.io/RTrino/reference/dbRenameTable.md)
+  and
+  [`dbRemoveTable()`](https://dbi.r-dbi.org/reference/dbRemoveTable.html).
+  `dbWriteTable(overwrite = TRUE)` renames the existing table instead of
+  dropping it, and puts it back if the write fails.
+- Wraps statements in Trino transactions with
+  [`dbBegin()`](https://dbi.r-dbi.org/reference/transactions.html),
+  [`dbCommit()`](https://dbi.r-dbi.org/reference/transactions.html),
+  [`dbRollback()`](https://dbi.r-dbi.org/reference/transactions.html)
+  and
+  [`dbWithTransaction()`](https://dbi.r-dbi.org/reference/dbWithTransaction.html).
+- Cancels a query on the server when its result is cleared while still
+  running.
+- Bounds each HTTP request with a `timeout`, and a query’s run time on
+  the cluster with `query_max_run_time`.
+- Authenticates with basic credentials, a bearer JWT or OAuth2 client
+  credentials — each held in a closure, never in a global variable — and
+  refuses to send them over plain HTTP.
+- Trusts an internal certificate authority without turning verification
+  off.
+- Translates `dplyr` pipelines to Trino SQL when dbplyr (\>= 2.6.0) is
+  installed, so that an expression computes in Trino what it computes in
+  R.
+
+## Limits
+
+- Parameter binding: put values into a statement with
+  [`DBI::sqlInterpolate()`](https://dbi.r-dbi.org/reference/sqlInterpolate.html),
+  which quotes them as typed Trino literals. Passing `params` is an
+  error.
+- Writing is done with `INSERT INTO ... VALUES`, one statement per
+  `chunk_size` rows (1000 by default), with every value written into the
+  SQL as a literal. It suits tables of thousands of rows, not bulk
+  loads: for those, write files in your data lake and let Trino read
+  them.
+- Trino has no temporary tables, so `temporary = TRUE` is an error, and
+  [`dplyr::copy_to()`](https://dplyr.tidyverse.org/reference/copy_to.html)
+  and [`compute()`](https://dplyr.tidyverse.org/reference/compute.html)
+  need `temporary = FALSE` and a table name.
+- Whether
+  [`dbRollback()`](https://dbi.r-dbi.org/reference/transactions.html)
+  undoes a write depends on the connector behind the catalog, not on
+  RTrino. Iceberg and Delta Lake tables support it; the `memory`, `tpch`
+  and other catalogs that hold no real storage do not, and
+  [`dbBegin()`](https://dbi.r-dbi.org/reference/transactions.html) warns
+  when the connection’s catalog is one of them.
+
+The vignette lists the few places where a `dplyr` translation cannot
+match R, such as [`round()`](https://rdrr.io/r/base/Round.html) on
+halves and the approximate
+[`median()`](https://rdrr.io/r/stats/median.html).
+
+## Authentication
+
+| Method | Helper | Typical use |
+|----|----|----|
+| Basic | `trino_auth_basic(user, password)` | LDAP, password file |
+| Bearer JWT | `trino_auth_jwt(token)` | service accounts, pipelines |
+| OAuth2 client credentials | `trino_auth_oauth2(client_id, client_secret, token_url)` | corporate SSO; the token is renewed automatically |
+
+## Development
+
+R 4.1.0 or newer. The test suite runs offline against a fake Trino
+coordinator built with [webfakes](https://webfakes.r-lib.org), so no
+cluster is needed. The fake replays responses recorded from a real Trino
+(`tests/testthat/fixtures`, captured with `dev/record-fixtures.R`), so
+the tests read the payloads a cluster really sends:
+
+``` r
+
+devtools::test()
+devtools::check()
+```
+
+With a Trino at hand, the integration tests in
+`tests/testthat/test-live.R` also run: they compare every value with
+Trino’s own rendering of it, and run the SQL of the `dplyr` translations
+against what R computes on the same rows.
+
+``` r
+
+# docker run --rm -d -p 8080:8080 --name trino trinodb/trino
+Sys.setenv(RTRINO_TEST_URL = "http://localhost:8080")
+devtools::test()
+```
+
+## License
+
+BSD 3-Clause. See
+[LICENSE.md](https://github.com/AngelCasasbl/RTrino/blob/main/LICENSE.md).

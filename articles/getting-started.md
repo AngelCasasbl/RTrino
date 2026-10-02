@@ -1,0 +1,447 @@
+# Getting started with RTrino
+
+`RTrino` is a DBI backend for [Trino](https://trino.io), the distributed
+SQL query engine. It talks to a Trino coordinator over the cluster’s
+HTTP REST API, so there is no driver to install and nothing to compile.
+
+The code in this vignette is not evaluated: every example needs a
+reachable cluster.
+
+## Connecting
+
+Trino’s REST API is stateless, so a connection is really a bundle of
+settings: the coordinator’s address, who you are, and which catalog and
+schema unqualified table names resolve against. `catalog` and `schema`
+are required.
+
+``` r
+
+library(DBI)
+library(RTrino)
+
+con <- dbConnect(
+  Trino(),
+  host = "http://localhost",
+  port = 8080,
+  catalog = "hive",
+  schema = "default"
+)
+```
+
+[`dbConnect()`](https://dbi.r-dbi.org/reference/dbConnect.html) calls
+`/v1/info` before returning, so a wrong address or a rejected credential
+fails immediately rather than on your first query. The port can also be
+written into the host, as in `host = "localhost:8080"`.
+
+## Authentication
+
+Each authentication method is a closure that attaches credentials to
+every request. The credentials live inside that closure, never in the
+global environment, and never in a slot you might print by accident.
+
+All three need an `https://` host. Over plain HTTP the credentials would
+travel unencrypted, so
+[`dbConnect()`](https://dbi.r-dbi.org/reference/dbConnect.html) refuses
+to send them there, before anything reaches the network. Only if the
+connection is encrypted by other means, such as an SSH tunnel to the
+coordinator, set `allow_http_auth = TRUE`.
+
+### Basic — LDAP or a password file
+
+``` r
+
+con <- dbConnect(
+  Trino(),
+  host = "https://trino.example.com",
+  port = 443,
+  user = Sys.getenv("TRINO_USER"),
+  catalog = "hive",
+  schema = "analytics",
+  auth = trino_auth_basic(
+    Sys.getenv("TRINO_USER"),
+    Sys.getenv("TRINO_PASSWORD")
+  )
+)
+```
+
+### JWT — service accounts and pipelines
+
+``` r
+
+con <- dbConnect(
+  Trino(),
+  host = "https://trino.example.com",
+  port = 443,
+  user = Sys.getenv("TRINO_USER"),
+  catalog = "hive",
+  schema = "analytics",
+  auth = trino_auth_jwt(Sys.getenv("TRINO_TOKEN"))
+)
+```
+
+### OAuth2 client credentials — corporate SSO
+
+`httr2` caches the token and renews it when it expires, so a
+long-running session does not need to think about the token’s lifetime.
+
+``` r
+
+con <- dbConnect(
+  Trino(),
+  host = "https://trino.example.com",
+  port = 443,
+  user = Sys.getenv("TRINO_USER"),
+  catalog = "hive",
+  schema = "analytics",
+  auth = trino_auth_oauth2(
+    client_id     = Sys.getenv("OAUTH_CLIENT_ID"),
+    client_secret = Sys.getenv("OAUTH_CLIENT_SECRET"),
+    token_url     = "https://auth.example.com/oauth/token"
+  )
+)
+```
+
+## Internal certificate authorities
+
+A cluster whose certificate is signed by your own CA does not need
+certificate checking turned off. Point
+[`trino_ssl()`](https://angelcasasbl.github.io/RTrino/reference/trino_ssl.md)
+at the CA’s PEM file and verification keeps working:
+
+``` r
+
+con <- dbConnect(
+  Trino(),
+  host = "https://trino.internal",
+  port = 443,
+  catalog = "hive",
+  schema = "analytics",
+  auth = trino_auth_basic(
+    Sys.getenv("TRINO_USER"),
+    Sys.getenv("TRINO_PASSWORD")
+  ),
+  ssl_options = trino_ssl(ca_bundle = "/etc/ssl/certs/internal-ca.pem")
+)
+```
+
+`trino_ssl(verify = FALSE)` exists for a development cluster with a
+throwaway certificate. It accepts *any* certificate, including one
+presented by an attacker, so
+[`dbConnect()`](https://dbi.r-dbi.org/reference/dbConnect.html) warns
+when it opens a connection with it.
+
+## Querying
+
+``` r
+
+sales <- dbGetQuery(con, "SELECT * FROM sales LIMIT 100")
+```
+
+For a result too large to hold in memory, take it in chunks.
+[`dbFetch()`](https://dbi.r-dbi.org/reference/dbFetch.html) follows
+Trino’s pagination for you and buffers whatever a page delivered beyond
+what you asked for:
+
+``` r
+
+res <- dbSendQuery(con, "SELECT * FROM sales")
+while (!dbHasCompleted(res)) {
+  chunk <- dbFetch(res, n = 10000)
+  # summarise, write out, accumulate...
+}
+dbClearResult(res)
+```
+
+Clearing a result that is still running sends a `DELETE` to the
+coordinator, so abandoning a query also stops the cluster working on it.
+So does interrupting R while it waits for a query.
+
+[`dbColumnInfo()`](https://dbi.r-dbi.org/reference/dbColumnInfo.html)
+and `dbFetch(res, n = 0)` describe the result’s columns, with their
+types, before any row has been fetched.
+
+## Statements
+
+[`dbExecute()`](https://dbi.r-dbi.org/reference/dbExecute.html) runs a
+statement to completion and returns how many rows Trino says it changed:
+the count of an `INSERT`, `UPDATE`, `DELETE`, `MERGE` or
+`CREATE TABLE ... AS SELECT`, and `0` for a statement that changes no
+rows, such as `CREATE TABLE` or `DROP TABLE`.
+
+``` r
+
+dbExecute(con, "INSERT INTO memory.default.visits VALUES (1, 'a'), (2, 'b')")
+#> [1] 2
+```
+
+RTrino has no parameter binding, and passing `params` is an error rather
+than being ignored. Put values into a statement with
+[`sqlInterpolate()`](https://dbi.r-dbi.org/reference/sqlInterpolate.html)
+or
+[`glue::glue_sql()`](https://glue.tidyverse.org/reference/glue_sql.html):
+both quote them through
+[`dbQuoteLiteral()`](https://dbi.r-dbi.org/reference/dbQuoteLiteral.html),
+which writes Trino literals of the right type, so a date is compared as
+a date and a string cannot break out of its quotes.
+
+``` r
+
+sql <- sqlInterpolate(
+  con,
+  "SELECT * FROM orders WHERE orderdate >= ?since AND orderstatus = ?status",
+  since = as.Date("1995-01-01"),
+  status = "F"
+)
+sql
+#> <SQL> SELECT * FROM orders
+#>       WHERE orderdate >= DATE '1995-01-01' AND orderstatus = 'F'
+dbGetQuery(con, sql)
+```
+
+A `POSIXct` is written as a `TIMESTAMP` in the connection’s
+`session.timezone`, to the microsecond, which is how Trino reads it
+back.
+
+## Writing data
+
+[`dbWriteTable()`](https://dbi.r-dbi.org/reference/dbWriteTable.html),
+[`dbAppendTable()`](https://dbi.r-dbi.org/reference/dbAppendTable.html)
+and
+[`dbCreateTable()`](https://dbi.r-dbi.org/reference/dbCreateTable.html)
+write data frames. Trino’s protocol has no parameter binding, so rows go
+in as `INSERT INTO ... VALUES` statements with every value written as a
+literal, `chunk_size` rows at a time (1000 by default). That suits
+tables of thousands of rows; for bulk loads, create the table with SQL,
+for example `CREATE TABLE ... AS SELECT ...` through
+[`dbExecute()`](https://dbi.r-dbi.org/reference/dbExecute.html).
+
+``` r
+
+dbWriteTable(con, "sales", data.frame(id = 1:3, label = letters[1:3]))
+dbAppendTable(con, "sales", data.frame(id = 4L, label = "d"))
+
+# Replace the table. The old one is renamed first and restored if the write
+# fails, so a failure does not leave you without it.
+dbWriteTable(con, "sales", data.frame(id = 9L, label = "z"), overwrite = TRUE)
+```
+
+Trino has no temporary tables, so `temporary = TRUE` is an error, and
+[`dplyr::copy_to()`](https://dplyr.tidyverse.org/reference/copy_to.html)
+and [`compute()`](https://dplyr.tidyverse.org/reference/compute.html)
+need `temporary = FALSE` and a table name.
+
+## Transactions
+
+[`dbBegin()`](https://dbi.r-dbi.org/reference/transactions.html) starts
+a Trino transaction that every later statement runs in, until
+[`dbCommit()`](https://dbi.r-dbi.org/reference/transactions.html) or
+[`dbRollback()`](https://dbi.r-dbi.org/reference/transactions.html) ends
+it.
+[`dbWithTransaction()`](https://dbi.r-dbi.org/reference/dbWithTransaction.html)
+does both for you, rolling back if the code fails:
+
+``` r
+
+dbWithTransaction(con, {
+  dbExecute(con, "INSERT INTO sales VALUES (5, 'e')")
+  dbExecute(con, "INSERT INTO sales VALUES (6, 'f')")
+})
+```
+
+Whether a rollback undoes a write is up to the connector behind the
+catalog, not RTrino: Iceberg and Delta Lake tables support it, `memory`
+and `tpch` do not.
+[`dbBegin()`](https://dbi.r-dbi.org/reference/transactions.html) warns
+when the connection’s catalog is one of those.
+
+## Timeouts
+
+A query is a series of HTTP requests, and two limits apply:
+
+- `timeout` (60 seconds by default) bounds each request, so a
+  coordinator or a network that stops answering fails with an error
+  instead of blocking R.
+- `query_max_run_time` bounds the whole query on the cluster. Past it,
+  Trino stops the query and RTrino raises a `trino_query_error` with
+  `error_name = "EXCEEDED_TIME_LIMIT"`.
+
+In a Shiny app, where a blocked R session blocks its user, set both:
+
+``` r
+
+con <- dbConnect(
+  Trino(),
+  host = "https://trino.example.com",
+  port = 443,
+  catalog = "hive",
+  schema = "analytics",
+  auth = trino_auth_jwt(Sys.getenv("TRINO_TOKEN")),
+  timeout = 30,
+  query_max_run_time = "5m"
+)
+```
+
+## Big integers and precision
+
+Trino’s `BIGINT` spans values an R double cannot hold exactly. By
+default `RTrino` returns such columns as
+[`bit64::integer64`](https://bit64.r-lib.org/reference/bit64-package.html),
+which is exact:
+
+``` r
+
+dbGetQuery(con, "SELECT 9007199254740993 AS id")$id
+#> integer64
+#> [1] 9007199254740993
+```
+
+The one exception is the lowest `BIGINT`, -9223372036854775808, which
+bit64 keeps for its own `NA`: it comes back as `NA`, with a warning.
+Choose a different representation at connection time with
+`bigint = "numeric"` (a double, exact only up to 2^53) or
+`bigint = "character"` (the exact digits, always).
+
+`DOUBLE` values arrive bit for bit, `NaN` and the infinities included.
+`DECIMAL` is returned as a double, so a decimal with more than 15
+significant digits is rounded; cast it to `VARCHAR` in the query to keep
+every digit. `TIMESTAMP` and `TIME` keep their full precision, down to
+the microsecond.
+
+## dplyr
+
+With dbplyr 2.6.0 or newer installed, a connection carries a Trino SQL
+dialect and `dplyr` verbs are translated to SQL Trino accepts:
+
+``` r
+
+library(dplyr)
+
+tbl(con, "sales") |>
+  filter(year == 2026) |>
+  group_by(region) |>
+  summarise(total = sum(amount, na.rm = TRUE)) |>
+  collect()
+```
+
+Trino-specific translations are applied so that an expression computes
+in Trino what it computes in R:
+
+- `/` divides as a double, where Trino would truncate the quotient of
+  two integers, and `%%` takes the sign of the divisor, as in R.
+- [`as.integer()`](https://rdrr.io/r/base/integer.html) and
+  `as.integer64()` truncate towards zero, where Trino’s cast would
+  round.
+- [`paste()`](https://rdrr.io/r/base/paste.html),
+  [`paste0()`](https://rdrr.io/r/base/paste.html) and `str_c()` accept
+  columns of any type.
+- [`grepl()`](https://rdrr.io/r/base/grep.html),
+  [`sub()`](https://rdrr.io/r/base/grep.html) and
+  [`gsub()`](https://rdrr.io/r/base/grep.html) become
+  `REGEXP_LIKE`/`REGEXP_REPLACE`, honour `fixed = TRUE` and
+  `ignore.case = TRUE`, and accept R’s `\\1` back-references;
+  [`sub()`](https://rdrr.io/r/base/grep.html) replaces the first match
+  only.
+- A `Date` or `POSIXct` from R, as in `filter(orderdate >= !!since)`,
+  becomes a typed Trino literal.
+
+Where there is no faithful translation, a few differences remain, and it
+is worth knowing them before moving a computation from R to the cluster:
+
+- [`round()`](https://rdrr.io/r/base/Round.html) rounds halves away from
+  zero, where R rounds them to the even digit: `round(2.5)` is `3` in
+  Trino and `2` in R.
+- [`median()`](https://rdrr.io/r/stats/median.html) and
+  [`quantile()`](https://rdrr.io/r/stats/quantile.html) become
+  `APPROX_PERCENTILE`, the percentile Trino offers over an arbitrary
+  number of rows. It is approximate: on skewed data it can be off by a
+  few per cent. Collect the rows and compute in R when the exact value
+  matters.
+- [`paste()`](https://rdrr.io/r/base/paste.html) skips `NA`, where R
+  writes `"NA"`, and renders a `DOUBLE` column the way Trino does, so a
+  value of 1.5 becomes `"1.5E0"`; round or cast it to a `DECIMAL` first
+  when that matters.
+- Regular expressions are Trino’s (Java’s syntax), not R’s; the common
+  constructs mean the same in both.
+- `date + 1` fails, because Trino does not add a number to a date; write
+  `date + days(1)`. `days()`, `weeks()`,
+  [`months()`](https://rdrr.io/r/base/weekday.POSIXt.html), `years()`,
+  `hours()`, `minutes()` and `seconds()` become intervals.
+
+[`compute()`](https://dplyr.tidyverse.org/reference/compute.html) needs
+`temporary = FALSE` and a name, because Trino has no temporary tables.
+
+[`filter_out()`](https://dplyr.tidyverse.org/reference/filter.html),
+added in dplyr 1.2.0, is translated with Trino’s native
+`IS DISTINCT FROM` instead of the portable `CASE WHEN` comparison dbplyr
+falls back to, so the rows where the condition is `NA` are kept and the
+SQL stays readable.
+
+Two groups of dplyr 1.2.0 functions have no SQL translation in dbplyr
+2.6.0 and therefore none here either:
+[`when_any()`](https://dplyr.tidyverse.org/reference/when-any-all.html)/[`when_all()`](https://dplyr.tidyverse.org/reference/when-any-all.html),
+which pass through untranslated and reach the cluster as an unknown
+function, and
+[`recode_values()`](https://dplyr.tidyverse.org/reference/recode-and-replace-values.html)/[`replace_values()`](https://dplyr.tidyverse.org/reference/recode-and-replace-values.html)/[`replace_when()`](https://dplyr.tidyverse.org/reference/case-and-replace-when.html),
+which fail with “Cannot translate a `<formula>` object to SQL”. Use `|`
+and `&` in place of
+[`when_any()`](https://dplyr.tidyverse.org/reference/when-any-all.html)
+and
+[`when_all()`](https://dplyr.tidyverse.org/reference/when-any-all.html),
+and
+[`case_when()`](https://dplyr.tidyverse.org/reference/case-and-replace-when.html)
+or [`if_else()`](https://dplyr.tidyverse.org/reference/if_else.html) in
+place of the recoding family, until dbplyr covers them.
+
+Inspect the generated SQL before running it with
+[`dplyr::show_query()`](https://dplyr.tidyverse.org/reference/explain.html),
+and the cluster’s plan with
+[`dplyr::explain()`](https://dplyr.tidyverse.org/reference/explain.html).
+[`simulate_trino()`](https://angelcasasbl.github.io/RTrino/reference/simulate_trino.md)
+gives a connection that dispatches the Trino dialect without a cluster,
+for checking a translation offline.
+
+## Introspection
+
+``` r
+
+dbListTables(con)
+dbListFields(con, "sales")
+dbExistsTable(con, "sales")
+dbGetInfo(con)$db.version
+```
+
+A table can be named as `"table"`, `"schema.table"` or
+`"catalog.schema.table"`, with `Id(catalog = , schema = , table = )`, or
+with an identifier that is already quoted. Trino folds every identifier
+to lower case, so `dbExistsTable(con, "SALES")` finds `sales`, as
+`SELECT * FROM SALES` would.
+
+## Session properties and other headers
+
+Anything the protocol expects in a header can be added to every request
+through `extra.headers` — Trino session properties, for instance.
+`query_max_run_time` joins whatever properties are set here:
+
+``` r
+
+con <- dbConnect(
+  Trino(),
+  host = "http://localhost",
+  port = 8080,
+  catalog = "hive",
+  schema = "default",
+  extra.headers = list("X-Trino-Session" = "query_max_run_time=2h")
+)
+```
+
+## Disconnecting
+
+There is no server-side session to close, so
+[`dbDisconnect()`](https://dbi.r-dbi.org/reference/dbDisconnect.html)
+only invalidates the object; any later use of it is an error rather than
+a silent reconnect.
+
+``` r
+
+dbDisconnect(con)
+```
