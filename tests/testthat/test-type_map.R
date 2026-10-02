@@ -280,7 +280,19 @@ test_that("recorded BIGINT values are exact as text and rounded as doubles", {
     trino_fixture_sql("numbers")
   )
   expect_type(as_double$b, "double")
-  expect_identical(as_double$b, as.numeric(as_double$b_text))
+
+  # Trino's own text is the reference, read back by R's string parser. That
+  # parser is exact up to 15 digits, but on platforms where `long double` is
+  # a plain double (macOS on Apple silicon) it drifts by an ulp or two on
+  # longer ones: it reads -9223372036854775808 as -9223372036854777856, while
+  # the column, parsed from JSON, holds -2^63 exactly.
+  long <- nchar(as_double$b_text) > 15L
+  expect_identical(as_double$b[!long], as.numeric(as_double$b_text[!long]))
+  expect_equal(
+    as_double$b[long], as.numeric(as_double$b_text[long]),
+    tolerance = 1e-15
+  )
+  expect_identical(as_double$b[[10L]], -2^63)
 })
 
 test_that("a recorded row of every type converts to the documented R type", {
