@@ -3,10 +3,16 @@
 0 errors | 0 warnings | 1 note
 
 * This is a new release.
+* The spell check flags "JWT" and "OAuth2" in the DESCRIPTION. Neither is a
+  misspelling: JWT is the JSON Web Token, spelled out in the same sentence, and
+  OAuth2 is the name of the authorisation protocol.
 
 ## Test environments
 
 * Local Windows 11, R 4.6.1 (`R CMD check --as-cran`)
+* win-builder, Windows Server 2022, R Under development (2026-09-30 r90605):
+  0 errors | 0 warnings | 1 note. The note is the new-submission one above, plus
+  a README link to `LICENSE.md` (fixed since: it is now an absolute URL).
 
 ## Examples
 
