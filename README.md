@@ -61,6 +61,12 @@ certificate authorities, chunked fetching and the `dplyr` translations.
   timestamps to the microsecond.
 * Reports the rows a statement changed from `dbExecute()`, and accepts table
   names as strings, `DBI::Id()` or quoted identifiers.
+* Writes data frames with `dbWriteTable()`, `dbAppendTable()` and
+  `dbCreateTable()`, and renames or drops tables with `dbRenameTable()` and
+  `dbRemoveTable()`. `dbWriteTable(overwrite = TRUE)` renames the existing
+  table instead of dropping it, and puts it back if the write fails.
+* Wraps statements in Trino transactions with `dbBegin()`, `dbCommit()`,
+  `dbRollback()` and `dbWithTransaction()`.
 * Cancels a query on the server when its result is cleared while still running.
 * Bounds each HTTP request with a `timeout`, and a query's run time on the
   cluster with `query_max_run_time`.
@@ -71,14 +77,20 @@ certificate authorities, chunked fetching and the `dplyr` translations.
 * Translates `dplyr` pipelines to Trino SQL when dbplyr (>= 2.6.0) is
   installed, so that an expression computes in Trino what it computes in R.
 
-## What it does not do
+## Limits
 
 * Parameter binding: put values into a statement with `DBI::sqlInterpolate()`,
   which quotes them as typed Trino literals. Passing `params` is an error.
-* Uploading data frames: `dbWriteTable()`, `dbAppendTable()`,
-  `dbCreateTable()` and `copy_to()` fail with a message that says so. Create
-  and fill tables with SQL through `dbExecute()`.
-* Transactions: each statement is committed when it finishes.
+* Writing is done with `INSERT INTO ... VALUES`, one statement per
+  `chunk_size` rows (1000 by default), with every value written into the SQL as
+  a literal. It suits tables of thousands of rows, not bulk loads: for those,
+  write files in your data lake and let Trino read them.
+* Trino has no temporary tables, so `temporary = TRUE` is an error, and
+  `dplyr::copy_to()` and `compute()` need `temporary = FALSE` and a table name.
+* Whether `dbRollback()` undoes a write depends on the connector behind the
+  catalog, not on RTrino. Iceberg and Delta Lake tables support it; the
+  `memory`, `tpch` and other catalogs that hold no real storage do not, and
+  `dbBegin()` warns when the connection's catalog is one of them.
 
 The vignette lists the few places where a `dplyr` translation cannot match R,
 such as `round()` on halves and the approximate `median()`.
