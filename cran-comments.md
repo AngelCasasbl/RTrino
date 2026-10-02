@@ -11,8 +11,10 @@
 
 * Local Windows 11, R 4.6.1 (`R CMD check --as-cran`)
 * win-builder, Windows Server 2022, R Under development (2026-09-30 r90605):
-  0 errors | 0 warnings | 1 note. The note is the new-submission one above, plus
-  a README link to `LICENSE.md` (fixed since: it is now an absolute URL).
+  the note above and nothing else.
+* macOS builder, Apple M1, R 4.6.1 patched: Status OK.
+* GitHub Actions: macOS (release), Windows (release) and Ubuntu (devel,
+  release and oldrel-1).
 
 ## Examples
 
