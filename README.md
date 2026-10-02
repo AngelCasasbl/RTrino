@@ -128,4 +128,4 @@ devtools::test()
 
 ## License
 
-BSD 3-Clause. See [LICENSE.md](LICENSE.md).
+BSD 3-Clause. See [LICENSE.md](https://github.com/AngelCasasbl/RTrino/blob/main/LICENSE.md).
