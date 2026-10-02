@@ -8,11 +8,13 @@
 #' @param ... Unused, for compatibility with the generic.
 #' @return A string naming a Trino type.
 #' @export
-#' @examples
-#' \dontrun{
+#' @examplesIf nzchar(Sys.getenv("RTRINO_TEST_URL"))
+#' con <- DBI::dbConnect(RTrino::Trino(), host = Sys.getenv("RTRINO_TEST_URL"),
+#'                       catalog = "tpch", schema = "tiny")
 #' DBI::dbDataType(con, 1L)
 #' DBI::dbDataType(con, Sys.Date())
-#' }
+#' DBI::dbDataType(con, data.frame(id = 1L, label = "a"))
+#' DBI::dbDisconnect(con)
 setMethod("dbDataType", "TrinoConnection", function(dbObj, obj, ...) {
   trino_data_type(obj)
 })

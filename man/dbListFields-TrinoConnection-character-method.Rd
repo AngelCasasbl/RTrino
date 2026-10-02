@@ -30,8 +30,11 @@ A character vector of column names.
 List a table's columns
 }
 \examples{
-\dontrun{
-DBI::dbListFields(con, "sales")
-DBI::dbListFields(con, DBI::Id(schema = "analytics", table = "sales"))
-}
+\dontshow{if (nzchar(Sys.getenv("RTRINO_TEST_URL"))) withAutoprint(\{ # examplesIf}
+con <- DBI::dbConnect(RTrino::Trino(), host = Sys.getenv("RTRINO_TEST_URL"),
+                      catalog = "tpch", schema = "tiny")
+DBI::dbListFields(con, "nation")
+DBI::dbListFields(con, DBI::Id(schema = "sf1", table = "region"))
+DBI::dbDisconnect(con)
+\dontshow{\}) # examplesIf}
 }

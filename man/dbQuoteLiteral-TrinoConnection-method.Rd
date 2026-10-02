@@ -39,11 +39,14 @@ reads it back;
 Other classes are quoted by DBI's default method.
 }
 \examples{
-\dontrun{
+\dontshow{if (nzchar(Sys.getenv("RTRINO_TEST_URL"))) withAutoprint(\{ # examplesIf}
+con <- DBI::dbConnect(RTrino::Trino(), host = Sys.getenv("RTRINO_TEST_URL"),
+                      catalog = "tpch", schema = "tiny")
 DBI::dbQuoteLiteral(con, as.Date("2026-01-15"))
 DBI::sqlInterpolate(
   con, "SELECT * FROM orders WHERE orderdate >= ?since AND urgent = ?flag",
   since = as.Date("2026-01-01"), flag = TRUE
 )
-}
+DBI::dbDisconnect(con)
+\dontshow{\}) # examplesIf}
 }

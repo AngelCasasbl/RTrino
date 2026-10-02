@@ -29,8 +29,17 @@ Trino has no temporary tables, so \code{temporary = TRUE} is an error rather
 than being silently ignored.
 }
 \examples{
-\dontrun{
+\dontshow{if (nzchar(Sys.getenv("RTRINO_TEST_URL"))) withAutoprint(\{ # examplesIf}
+con <- DBI::dbConnect(RTrino::Trino(), host = Sys.getenv("RTRINO_TEST_URL"),
+                      catalog = "memory", schema = "default")
 DBI::dbCreateTable(con, "sales", c(id = "bigint", label = "varchar"))
+DBI::dbListFields(con, "sales")
+DBI::dbRemoveTable(con, "sales")
+
+# The column types can also follow a data frame's
 DBI::dbCreateTable(con, "sales", data.frame(id = 1L, label = "a"))
-}
+DBI::dbRemoveTable(con, "sales")
+
+DBI::dbDisconnect(con)
+\dontshow{\}) # examplesIf}
 }

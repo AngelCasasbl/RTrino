@@ -34,10 +34,14 @@ matched the same way: \code{"SALES"} exists if \code{sales} does, as
 \verb{SELECT * FROM SALES} would find it.
 }
 \examples{
-\dontrun{
-DBI::dbExistsTable(con, "sales")
-DBI::dbExistsTable(con, "hive.analytics.sales")
-DBI::dbExistsTable(con, DBI::Id(catalog = "hive", schema = "analytics",
-                                table = "sales"))
-}
+\dontshow{if (nzchar(Sys.getenv("RTRINO_TEST_URL"))) withAutoprint(\{ # examplesIf}
+con <- DBI::dbConnect(RTrino::Trino(), host = Sys.getenv("RTRINO_TEST_URL"),
+                      catalog = "tpch", schema = "tiny")
+DBI::dbExistsTable(con, "nation")
+DBI::dbExistsTable(con, "tpch.sf1.nation")
+DBI::dbExistsTable(con, DBI::Id(catalog = "tpch", schema = "sf1",
+                                table = "nation"))
+DBI::dbExistsTable(con, "no_such_table")
+DBI::dbDisconnect(con)
+\dontshow{\}) # examplesIf}
 }

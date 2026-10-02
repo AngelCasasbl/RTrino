@@ -23,7 +23,11 @@ Submits the statement, fetches every row and clears the result, even if
 fetching fails.
 }
 \examples{
-\dontrun{
-DBI::dbGetQuery(con, "SELECT * FROM sales LIMIT 100")
-}
+\dontshow{if (nzchar(Sys.getenv("RTRINO_TEST_URL"))) withAutoprint(\{ # examplesIf}
+con <- DBI::dbConnect(RTrino::Trino(), host = Sys.getenv("RTRINO_TEST_URL"),
+                      catalog = "tpch", schema = "tiny")
+DBI::dbGetQuery(con, "SELECT * FROM nation LIMIT 5")
+DBI::dbGetQuery(con, "SELECT * FROM nation", n = 3)
+DBI::dbDisconnect(con)
+\dontshow{\}) # examplesIf}
 }

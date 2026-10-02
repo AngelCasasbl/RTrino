@@ -21,8 +21,12 @@ The inverse of \code{\link[=trino_type_to_r]{trino_type_to_r()}}: used by \code{
 column type when the caller does not give one explicitly.
 }
 \examples{
-\dontrun{
+\dontshow{if (nzchar(Sys.getenv("RTRINO_TEST_URL"))) withAutoprint(\{ # examplesIf}
+con <- DBI::dbConnect(RTrino::Trino(), host = Sys.getenv("RTRINO_TEST_URL"),
+                      catalog = "tpch", schema = "tiny")
 DBI::dbDataType(con, 1L)
 DBI::dbDataType(con, Sys.Date())
-}
+DBI::dbDataType(con, data.frame(id = 1L, label = "a"))
+DBI::dbDisconnect(con)
+\dontshow{\}) # examplesIf}
 }

@@ -55,9 +55,20 @@ renames the existing table rather than dropping it, and restores it if
 anything fails before the new table is fully written.
 }
 \examples{
-\dontrun{
+\dontshow{if (nzchar(Sys.getenv("RTRINO_TEST_URL"))) withAutoprint(\{ # examplesIf}
+con <- DBI::dbConnect(RTrino::Trino(), host = Sys.getenv("RTRINO_TEST_URL"),
+                      catalog = "memory", schema = "default")
 DBI::dbWriteTable(con, "sales", data.frame(id = 1:3, label = letters[1:3]))
-DBI::dbWriteTable(con, "sales", more_sales, append = TRUE)
-DBI::dbWriteTable(con, "sales", new_sales, overwrite = TRUE)
-}
+DBI::dbWriteTable(con, "sales", data.frame(id = 4L, label = "d"),
+                  append = TRUE)
+DBI::dbGetQuery(con, "SELECT * FROM sales ORDER BY id")
+
+# Replace the table and its contents
+DBI::dbWriteTable(con, "sales", data.frame(id = 9L, label = "z"),
+                  overwrite = TRUE)
+DBI::dbGetQuery(con, "SELECT * FROM sales")
+
+DBI::dbRemoveTable(con, "sales")
+DBI::dbDisconnect(con)
+\dontshow{\}) # examplesIf}
 }

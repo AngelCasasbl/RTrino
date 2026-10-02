@@ -13,11 +13,18 @@
 #' @param temporary Must be `FALSE`.
 #' @return `TRUE`, invisibly.
 #' @export
-#' @examples
-#' \dontrun{
+#' @examplesIf nzchar(Sys.getenv("RTRINO_TEST_URL"))
+#' con <- DBI::dbConnect(RTrino::Trino(), host = Sys.getenv("RTRINO_TEST_URL"),
+#'                       catalog = "memory", schema = "default")
 #' DBI::dbCreateTable(con, "sales", c(id = "bigint", label = "varchar"))
+#' DBI::dbListFields(con, "sales")
+#' DBI::dbRemoveTable(con, "sales")
+#'
+#' # The column types can also follow a data frame's
 #' DBI::dbCreateTable(con, "sales", data.frame(id = 1L, label = "a"))
-#' }
+#' DBI::dbRemoveTable(con, "sales")
+#'
+#' DBI::dbDisconnect(con)
 setMethod(
   "dbCreateTable", "TrinoConnection",
   function(conn, name, fields, ..., row.names = NULL, temporary = FALSE) {

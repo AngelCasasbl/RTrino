@@ -35,9 +35,16 @@ Trino's own synthetic catalogs (\code{memory}, \code{tpch}, ...) not at all.
 \code{dbBegin()} warns when the active catalog is one of the latter.
 }
 \examples{
-\dontrun{
+\dontshow{if (nzchar(Sys.getenv("RTRINO_TEST_URL"))) withAutoprint(\{ # examplesIf}
+con <- DBI::dbConnect(RTrino::Trino(), host = Sys.getenv("RTRINO_TEST_URL"),
+                      catalog = "tpch", schema = "tiny")
+
+# tpch holds no real storage, so dbBegin() warns that a ROLLBACK would
+# undo nothing. On an Iceberg or Delta Lake catalog it would not.
 DBI::dbBegin(con)
-DBI::dbExecute(con, "INSERT INTO sales VALUES (1, 'a')")
+DBI::dbGetQuery(con, "SELECT count(*) AS n FROM nation")
 DBI::dbCommit(con)
-}
+
+DBI::dbDisconnect(con)
+\dontshow{\}) # examplesIf}
 }

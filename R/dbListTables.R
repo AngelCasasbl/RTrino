@@ -4,10 +4,11 @@
 #' @param ... Unused, for compatibility with the generic.
 #' @return A character vector of table names.
 #' @export
-#' @examples
-#' \dontrun{
+#' @examplesIf nzchar(Sys.getenv("RTRINO_TEST_URL"))
+#' con <- DBI::dbConnect(RTrino::Trino(), host = Sys.getenv("RTRINO_TEST_URL"),
+#'                       catalog = "tpch", schema = "tiny")
 #' DBI::dbListTables(con)
-#' }
+#' DBI::dbDisconnect(con)
 setMethod("dbListTables", "TrinoConnection", function(conn, ...) {
   trino_check_valid(conn)
   sql <- paste0(

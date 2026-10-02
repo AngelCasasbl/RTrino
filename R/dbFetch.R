@@ -15,15 +15,17 @@
 #' @return A [tibble][tibble::tibble]. Once the result is exhausted, a zero-row
 #'   tibble with the right columns and types.
 #' @export
-#' @examples
-#' \dontrun{
-#' res <- DBI::dbSendQuery(con, "SELECT * FROM sales")
+#' @examplesIf nzchar(Sys.getenv("RTRINO_TEST_URL"))
+#' con <- DBI::dbConnect(RTrino::Trino(), host = Sys.getenv("RTRINO_TEST_URL"),
+#'                       catalog = "tpch", schema = "tiny")
+#' res <- DBI::dbSendQuery(con, "SELECT * FROM orders")
 #' while (!DBI::dbHasCompleted(res)) {
-#'   chunk <- DBI::dbFetch(res, n = 1000)
-#'   # process chunk
+#'   chunk <- DBI::dbFetch(res, n = 4000)
+#'   # process chunk; here, just count its rows
+#'   cat(nrow(chunk), "rows\n")
 #' }
 #' DBI::dbClearResult(res)
-#' }
+#' DBI::dbDisconnect(con)
 setMethod("dbFetch", "TrinoResult", function(res, n = -1, ...) {
   if (!dbIsValid(res)) {
     stop("Invalid TrinoResult: the result has been cleared.", call. = FALSE)

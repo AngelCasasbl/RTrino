@@ -10,11 +10,12 @@
 #' @param ... Unused, for compatibility with the generic.
 #' @return A [DBI::SQL] object.
 #' @export
-#' @examples
-#' \dontrun{
+#' @examplesIf nzchar(Sys.getenv("RTRINO_TEST_URL"))
+#' con <- DBI::dbConnect(RTrino::Trino(), host = Sys.getenv("RTRINO_TEST_URL"),
+#'                       catalog = "tpch", schema = "tiny")
 #' DBI::dbQuoteIdentifier(con, "my column")
 #' DBI::dbQuoteString(con, "O'Brien")
-#' }
+#' DBI::dbDisconnect(con)
 setMethod(
   "dbQuoteIdentifier", c("TrinoConnection", "character"),
   function(conn, x, ...) {
@@ -76,14 +77,15 @@ setMethod(
 #' @param ... Unused, for compatibility with the generic.
 #' @return A [DBI::SQL] object.
 #' @export
-#' @examples
-#' \dontrun{
+#' @examplesIf nzchar(Sys.getenv("RTRINO_TEST_URL"))
+#' con <- DBI::dbConnect(RTrino::Trino(), host = Sys.getenv("RTRINO_TEST_URL"),
+#'                       catalog = "tpch", schema = "tiny")
 #' DBI::dbQuoteLiteral(con, as.Date("2026-01-15"))
 #' DBI::sqlInterpolate(
 #'   con, "SELECT * FROM orders WHERE orderdate >= ?since AND urgent = ?flag",
 #'   since = as.Date("2026-01-01"), flag = TRUE
 #' )
-#' }
+#' DBI::dbDisconnect(con)
 setMethod("dbQuoteLiteral", "TrinoConnection", function(conn, x, ...) {
   if (methods::is(x, "SQL")) {
     return(x)

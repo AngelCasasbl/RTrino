@@ -34,6 +34,10 @@
 #'
 #' @name trino_auth
 #' @examples
+#' # Only builds the credential; nothing is sent until a connection uses it
+#' auth <- trino_auth_basic("analyst", Sys.getenv("TRINO_PASSWORD"))
+#'
+#' # Needs a cluster that authenticates with a password
 #' \dontrun{
 #' con <- DBI::dbConnect(
 #'   RTrino::Trino(),
@@ -42,7 +46,7 @@
 #'   user    = "analyst",
 #'   catalog = "hive",
 #'   schema  = "default",
-#'   auth    = trino_auth_basic("analyst", Sys.getenv("TRINO_PASSWORD"))
+#'   auth    = auth
 #' )
 #' }
 NULL
