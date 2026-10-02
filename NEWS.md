@@ -99,9 +99,18 @@ Verified against Trino 483; the audit's identifiers are given in brackets.
   literals (`DATE '...'`, `TIMESTAMP '...'`, `TRUE`, doubles that read back
   exactly), so `sqlInterpolate()` and `glue::glue_sql()` work with dates and
   logicals (M5).
-* `dbWriteTable()`, `dbAppendTable()`, `dbCreateTable()`, `dbBegin()`,
-  `dbCommit()` and `dbRollback()` fail with a message saying that RTrino does
-  not upload data or manage transactions (m3).
+* `dbWriteTable()`, `dbAppendTable()`, `dbCreateTable()` and `dbDataType()`
+  write data frames. Rows go in as `INSERT INTO ... VALUES` statements of
+  `chunk_size` rows each (1000 by default), every value a literal, since
+  Trino's protocol has no parameter binding. `dbWriteTable(overwrite = TRUE)`
+  renames the existing table rather than dropping it, and restores it if the
+  write fails. `dbRemoveTable()` and `dbRenameTable()` drop and rename tables;
+  `temporary = TRUE` is an error, because Trino has no temporary tables.
+* `dbBegin()`, `dbCommit()`, `dbRollback()` and `dbWithTransaction()` run
+  statements inside a Trino transaction. Whether a `ROLLBACK` undoes a write
+  depends on the connector behind the catalog; `dbBegin()` warns for the
+  catalogs that hold no real storage (`memory`, `system`, `tpch`, `tpcds`,
+  `jmx` and `blackhole`).
 
 ### Connections
 
@@ -129,8 +138,9 @@ Verified against Trino 483; the audit's identifiers are given in brackets.
   `seconds()` build intervals, for `date + days(1)` (M2).
 * A `Date` or `POSIXct` from R becomes a typed literal in a pipeline.
 * `compute()` explains that Trino needs `temporary = FALSE`, and no longer
-  runs `ANALYZE`, which not every connector supports; `copy_to()` says that
-  RTrino does not upload data (m3).
+  runs `ANALYZE`, which not every connector supports. `copy_to()` and
+  `compute()` write through `dbWriteTable()`, with the table name handed over
+  as the quoted identifier dbplyr already built (m3).
 * The dbplyr methods are no longer exported as functions. They are still
   registered when dbplyr is loaded rather than through `NAMESPACE`, now only
   with dbplyr 2.6.0 or later: a `NAMESPACE` directive for `sql_dialect()`,

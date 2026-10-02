@@ -193,12 +193,43 @@ dbGetQuery(con, sql)
 A `POSIXct` is written as a `TIMESTAMP` in the connection's
 `session.timezone`, to the microsecond, which is how Trino reads it back.
 
-RTrino reads data; it does not upload data frames. `dbWriteTable()`,
-`dbAppendTable()`, `dbCreateTable()` and `dplyr::copy_to()` fail with a message
-that says so: create and fill tables with SQL, for example
-`CREATE TABLE ... AS SELECT ...`, through `dbExecute()`. Transactions
-(`dbBegin()` and friends) are not supported either; each statement is committed
-when it finishes.
+## Writing data
+
+`dbWriteTable()`, `dbAppendTable()` and `dbCreateTable()` write data frames.
+Trino's protocol has no parameter binding, so rows go in as
+`INSERT INTO ... VALUES` statements with every value written as a literal,
+`chunk_size` rows at a time (1000 by default). That suits tables of thousands
+of rows; for bulk loads, create the table with SQL, for example
+`CREATE TABLE ... AS SELECT ...` through `dbExecute()`.
+
+```{r}
+dbWriteTable(con, "sales", data.frame(id = 1:3, label = letters[1:3]))
+dbAppendTable(con, "sales", data.frame(id = 4L, label = "d"))
+
+# Replace the table. The old one is renamed first and restored if the write
+# fails, so a failure does not leave you without it.
+dbWriteTable(con, "sales", data.frame(id = 9L, label = "z"), overwrite = TRUE)
+```
+
+Trino has no temporary tables, so `temporary = TRUE` is an error, and
+`dplyr::copy_to()` and `compute()` need `temporary = FALSE` and a table name.
+
+## Transactions
+
+`dbBegin()` starts a Trino transaction that every later statement runs in,
+until `dbCommit()` or `dbRollback()` ends it. `dbWithTransaction()` does both
+for you, rolling back if the code fails:
+
+```{r}
+dbWithTransaction(con, {
+  dbExecute(con, "INSERT INTO sales VALUES (5, 'e')")
+  dbExecute(con, "INSERT INTO sales VALUES (6, 'f')")
+})
+```
+
+Whether a rollback undoes a write is up to the connector behind the catalog,
+not RTrino: Iceberg and Delta Lake tables support it, `memory` and `tpch` do
+not. `dbBegin()` warns when the connection's catalog is one of those.
 
 ## Timeouts
 
