@@ -2,6 +2,8 @@
 
 ## RTrino 0.1.0
 
+CRAN release: 2026-10-15
+
 First release: a DBI backend for Trino over the cluster’s HTTP REST API.
 
 ### Connections
