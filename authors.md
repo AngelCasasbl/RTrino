@@ -7,7 +7,7 @@
 ## Citation
 
 Source:
-[`DESCRIPTION`](https://github.com/AngelCasasbl/RTrino/blob/main/DESCRIPTION)
+[`DESCRIPTION`](https://github.com/AngelCasasbl/RTrino/blob/v0.1.0/DESCRIPTION)
 
 Casas Ballestas L (2026). *RTrino: 'DBI' Backend for 'Trino'*. R package
 version 0.1.0, <https://angelcasasbl.github.io/RTrino/>.
